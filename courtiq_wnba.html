@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CourtIQ WNBA — Cap Intelligence</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#fdf6ff; --surface:#fff; --surface2:#f7f0fc; --surface3:#ede0f7;
+  --border:#e8d8f5; --border2:#d4b8ef;
+  --text:#1a0a2e; --text2:#5a4570; --muted:#9b80b8;
+  --nav:#1a0a2e; --nav-text:#7a5e99;
+  --t1:#c026d3; --t2:#7c3aed; --t3:#0891b2; --t4:#64748b;
+  --t1bg:rgba(192,38,211,0.08); --t2bg:rgba(124,58,237,0.08);
+  --t3bg:rgba(8,145,178,0.08);  --t4bg:rgba(100,116,139,0.08);
+  --green:#16a34a; --red:#dc2626; --accent:#c026d3;
+  --extend:#16a34a; --hold:#7c3aed; --trade:#dc2626;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+
+nav{background:var(--nav);height:56px;display:flex;align-items:center;padding:0 2rem;position:sticky;top:0;z-index:300;justify-content:space-between}
+.nav-left{display:flex;align-items:center;gap:2rem}
+.nav-logo{color:#fff;font-weight:700;font-size:1rem}
+.nav-logo span{color:var(--t1)}
+.nav-logo em{color:var(--t2);font-style:normal;font-weight:300}
+.nav-links{display:flex}
+.nav-link{color:var(--nav-text);font-size:.82rem;padding:0 1rem;height:56px;display:flex;align-items:center;border:none;background:transparent;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.nav-link:hover{color:#fff}
+.nav-link.active{color:#fff;border-bottom-color:var(--t1);background:rgba(192,38,211,0.1)}
+.nav-right{display:flex;gap:1rem;align-items:center}
+.nav-stat{font-size:.75rem;color:var(--nav-text)}
+.nav-stat b{color:#fff;font-family:'JetBrains Mono',monospace}
+.nav-stat .hl{color:var(--t1)}
+.league-pill{background:rgba(192,38,211,0.15);border:1px solid rgba(192,38,211,0.3);color:var(--t1);font-size:.65rem;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.06em}
+
+.page{display:none;padding:2rem;max-width:1400px;margin:0 auto}
+.page.active{display:block}
+.page-title{font-size:1.5rem;font-weight:700;margin-bottom:.25rem}
+.page-sub{color:var(--text2);font-size:.85rem;margin-bottom:1.75rem}
+
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:.75rem;margin-bottom:1.5rem}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem 1.2rem;border-top:3px solid var(--accent)}
+.kpi.blue{border-top-color:var(--t2)} .kpi.teal{border-top-color:var(--t3)}
+.kpi.green{border-top-color:var(--green)} .kpi.red{border-top-color:var(--red)}
+.kpi-label{font-size:.67rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px}
+.kpi-val{font-size:1.65rem;font-weight:700;line-height:1;color:var(--text)}
+.kpi-sub{font-size:.7rem;color:var(--text2);margin-top:5px}
+
+/* CHARTS */
+.charts-row{display:grid;grid-template-columns:1.4fr 1fr .9fr;gap:.75rem;margin-bottom:1.5rem}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.2rem}
+.chart-title{font-size:.75rem;font-weight:600;color:var(--text);margin-bottom:.2rem}
+.chart-sub{font-size:.68rem;color:var(--muted);margin-bottom:.9rem}
+
+/* FILTERS */
+.filters-bar{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem}
+.filters-bar select,.filters-bar input{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:7px;font-family:'Inter',sans-serif;font-size:.82rem;outline:none}
+.filters-bar select:focus,.filters-bar input:focus{border-color:var(--accent)}
+.search-box{min-width:200px}
+
+/* TABLE */
+.table-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.table-toolbar{display:flex;justify-content:space-between;align-items:center;padding:.75rem 1.2rem;border-bottom:1px solid var(--border)}
+.table-toolbar-title{font-size:.75rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em}
+.table-count{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--muted)}
+.table-wrap{overflow-x:auto;max-height:440px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+thead th{position:sticky;top:0;background:var(--surface2);padding:8px 10px;text-align:left;font-size:.63rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);cursor:pointer;user-select:none;white-space:nowrap;border-bottom:1px solid var(--border);font-weight:600}
+thead th:hover{color:var(--text)}
+thead th.sort-desc::after{content:' ↓';color:var(--accent)}
+thead th.sort-asc::after{content:' ↑';color:var(--accent)}
+tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+tbody tr:hover{background:var(--surface2)}
+tbody td{padding:8px 10px;white-space:nowrap}
+
+/* CELLS */
+.piv-circle{width:36px;height:36px;border-radius:50%;border:2.5px solid var(--accent);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:600;color:var(--accent);background:#fff;flex-shrink:0}
+.piv-sm{width:30px;height:30px;font-size:.62rem}
+.tier-badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;font-size:.65rem;font-weight:700;letter-spacing:.04em}
+.T1{background:var(--t1bg);color:var(--t1)} .T2{background:var(--t2bg);color:var(--t2)}
+.T3{background:var(--t3bg);color:var(--t3)} .T4{background:var(--t4bg);color:var(--t4)}
+.action-btn{display:inline-block;padding:3px 10px;border-radius:4px;font-size:.67rem;font-weight:600;letter-spacing:.04em}
+.action-Extend{background:rgba(22,163,74,.12);color:var(--extend)}
+.action-Hold{background:rgba(124,58,237,.10);color:var(--hold)}
+.action-Trade{background:rgba(220,38,38,.10);color:var(--trade)}
+.cap-cell{display:flex;align-items:center;gap:5px}
+.cap-bar-bg{width:60px;height:4px;background:var(--surface3);border-radius:2px;flex-shrink:0}
+.cap-bar-fill{height:4px;border-radius:2px}
+.mono{font-family:'JetBrains Mono',monospace;font-size:.72rem}
+.chip{display:inline-block;font-size:.65rem;padding:2px 6px;border-radius:4px;background:var(--surface2);border:1px solid var(--border);color:var(--text2)}
+.pos-chip{background:rgba(192,38,211,0.08);border-color:rgba(192,38,211,0.2);color:var(--t1)}
+.player-name-cell{font-weight:600;color:var(--text)}
+.val-green{color:var(--green)} .val-red{color:var(--red)} .val-muted{color:var(--muted)}
+
+/* PLAYER DEV */
+.piv-components{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1.75rem}
+.comp-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.1rem;border-top:3px solid}
+.comp-card.fuchsia{border-top-color:var(--t1)} .comp-card.purple{border-top-color:var(--t2)}
+.comp-card.teal{border-top-color:var(--t3)} .comp-card.amber{border-top-color:#d97706}
+.comp-card.green{border-top-color:var(--green)} .comp-card.slate{border-top-color:#64748b}
+.comp-title{font-weight:700;font-size:.9rem;margin-bottom:2px}
+.comp-pct{float:right;font-family:'JetBrains Mono',monospace;font-size:.8rem;font-weight:600}
+.comp-metrics{font-size:.72rem;font-weight:600;margin:.25rem 0 .4rem}
+.comp-desc{font-size:.72rem;color:var(--text2);line-height:1.5}
+
+.age-tabs{display:flex;background:var(--surface3);border-radius:7px;padding:2px;gap:2px}
+.age-tab{padding:5px 12px;border-radius:5px;border:none;background:transparent;font-size:.78rem;color:var(--text2);cursor:pointer;font-family:'Inter',sans-serif;font-weight:500}
+.age-tab.active{background:#fff;color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+
+.player-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.75rem}
+.player-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem;cursor:pointer;transition:all .15s}
+.player-card:hover{border-color:var(--accent);box-shadow:0 2px 12px rgba(192,38,211,.12)}
+.pc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.5rem}
+.pc-name{font-weight:700;font-size:.88rem;line-height:1.2}
+.pc-meta{font-size:.67rem;color:var(--muted);margin-top:1px}
+.pc-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.35rem;margin:.6rem 0}
+.pc-stat-label{font-size:.58rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.pc-stat-val{font-size:.88rem;font-weight:700;line-height:1.1}
+.pc-bottom{display:flex;justify-content:space-between;align-items:center;margin-top:.5rem;font-size:.72rem}
+
+/* TEAM ROSTER */
+.team-controls{display:flex;gap:.5rem;align-items:center;margin-bottom:1.25rem}
+.team-select,.sort-sel{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:7px 12px;border-radius:7px;font-family:'Inter',sans-serif;font-size:.82rem;outline:none}
+.team-kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:.75rem;margin-bottom:1.25rem}
+.team-kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.9rem 1rem}
+.team-kpi-label{font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:5px}
+.team-kpi-val{font-size:1.4rem;font-weight:700}
+.team-mid-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1.25rem}
+.tier-breakdown-card,.cw-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.1rem}
+.section-title{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);margin-bottom:.85rem}
+.tb-row{display:flex;align-items:center;gap:.75rem;margin-bottom:.6rem}
+.tb-label{width:160px;font-size:.8rem;display:flex;align-items:center;gap:.5rem}
+.tb-bar-bg{flex:1;height:6px;background:var(--surface3);border-radius:3px}
+.tb-bar-fill{height:6px;border-radius:3px}
+.tb-count{width:20px;text-align:right;font-size:.75rem;font-weight:600;color:var(--text2)}
+.cw-center{display:flex;justify-content:center;align-items:center;padding:.5rem 0}
+.cw-ring{width:100px;height:100px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;border:5px solid var(--green)}
+.cw-score{font-size:1.6rem;font-weight:700} .cw-label{font-size:.6rem;color:var(--muted)}
+.pos-section{margin-bottom:1rem}
+.pos-header{display:flex;align-items:center;gap:.5rem;padding:.5rem 0;border-bottom:1px solid var(--border);margin-bottom:.5rem}
+.pos-tag{font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--t1bg);color:var(--t1)}
+.pos-count{font-size:.72rem;color:var(--muted)}
+.roster-row{display:flex;align-items:center;gap:.75rem;padding:.5rem .25rem;border-bottom:1px solid var(--border);cursor:pointer;border-radius:4px;transition:background .1s}
+.roster-row:hover{background:var(--surface2)}
+.rr-name{flex:0 0 150px;font-weight:600;font-size:.82rem}
+.rr-meta{flex:0 0 80px;font-size:.67rem;color:var(--muted)}
+.rr-stats{display:flex;gap:1rem;flex:1}
+.rr-stat{text-align:center}
+.rr-stat-label{font-size:.58rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);display:block}
+.rr-stat-val{font-size:.8rem;font-weight:600}
+.rr-right{display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+
+/* TIER FRAMEWORK */
+.tier-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:2rem}
+.tier-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.25rem;border-top:4px solid}
+.tier-card.t1{border-top-color:var(--t1)} .tier-card.t2{border-top-color:var(--t2)}
+.tier-card.t3{border-top-color:var(--t3)} .tier-card.t4{border-top-color:var(--t4)}
+.tier-num{font-size:1.4rem;font-weight:800;margin-bottom:2px}
+.tier-name-big{font-weight:700;font-size:.9rem;margin-bottom:.75rem}
+.tier-piv-box{border-radius:6px;padding:.5rem .75rem;font-size:.72rem;font-weight:700;margin-bottom:.75rem}
+.criteria-title{font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;margin:.75rem 0 .35rem}
+.criteria-item{font-size:.75rem;color:var(--text2);margin-bottom:.2rem;display:flex;gap:.5rem}
+.criteria-item::before{content:'—';color:var(--muted)}
+.examples-list{font-size:.72rem;color:var(--text2)}
+.tbt-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem}
+.tbt-col{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.tbt-header{padding:.75rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem}
+.tbt-player{display:flex;align-items:center;gap:.6rem;padding:.6rem 1rem;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.tbt-player:hover{background:var(--surface2)}
+.tbt-player-info{flex:1;min-width:0}
+.tbt-player-name{font-weight:600;font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tbt-player-meta{font-size:.65rem;color:var(--muted)}
+
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(26,10,46,.55);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:620px;max-width:96vw;max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(192,38,211,.15)}
+.modal-close{position:absolute;top:1rem;right:1rem;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:.9rem;z-index:10}
+.modal-close:hover{background:var(--surface3)}
+.modal-head{padding:1.5rem;border-bottom:1px solid var(--border)}
+.modal-name{font-size:1.6rem;font-weight:800;line-height:1;margin-bottom:.5rem}
+.modal-meta-row{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
+.modal-body{padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:1.1rem}
+.modal-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem}
+.modal-kpi{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.75rem}
+.modal-kpi-label{font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:3px}
+.modal-kpi-val{font-size:1.3rem;font-weight:700}
+.modal-section{border-top:1px solid var(--border);padding-top:1rem}
+.modal-section-title{font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600;margin-bottom:.7rem}
+.modal-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.35rem}
+.modal-stat{display:flex;justify-content:space-between;align-items:center;padding:4px 0}
+.modal-stat-name{font-size:.73rem;color:var(--text2)}
+.modal-stat-val{font-family:'JetBrains Mono',monospace;font-size:.73rem;font-weight:600}
+.cap-block{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:1rem}
+.cap-block-top{display:flex;justify-content:space-between;margin-bottom:.75rem}
+.cap-number-big{font-size:1.8rem;font-weight:800}
+.cap-full-bar{width:100%;height:8px;background:var(--surface3);border-radius:4px;overflow:hidden}
+.cap-full-fill{height:100%;border-radius:4px;transition:width .4s}
+.cap-minmax{display:flex;justify-content:space-between;margin-top:.3rem;font-size:.65rem;color:var(--muted)}
+.val-block{display:flex;align-items:center;gap:1rem;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.9rem 1rem}
+.val-score-big{font-size:2rem;font-weight:800}
+.val-info-title{font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:2px}
+.val-info-desc{font-size:.8rem;font-weight:500}
+
+@media(max-width:900px){
+  .charts-row,.piv-components,.tier-cards,.tbt-grid{grid-template-columns:1fr}
+  .kpi-row,.team-kpi-row{grid-template-columns:repeat(2,1fr)}
+  .team-mid-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-left">
+    <div class="nav-logo">Court<em>IQ</em> <span>W</span></div>
+    <div class="nav-links">
+      <button class="nav-link active" onclick="showPage('cap',this)">Cap Overview</button>
+      <button class="nav-link" onclick="showPage('dev',this)">Player Development</button>
+      <button class="nav-link" onclick="showPage('roster',this)">Team Roster</button>
+      <button class="nav-link" onclick="showPage('tiers',this)">Tier Framework</button>
+    </div>
+  </div>
+  <div class="nav-right">
+    <div class="league-pill">WNBA 2024–25</div>
+    <div class="nav-stat"><b id="navPlayers">156</b> players</div>
+    <div class="nav-stat"><b class="hl" id="navT1">—</b> T1</div>
+    <div class="nav-stat"><b id="navTeams">—</b> teams</div>
+  </div>
+</nav>
+
+<!-- CAP OVERVIEW -->
+<div class="page active" id="page-cap">
+  <div class="page-title">Cap Overview</div>
+  <div class="page-sub">Team efficiency vs cap spend · WNBA 2024–25 season</div>
+  <div class="kpi-row" id="capKPIs"></div>
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-title">Cap Efficiency by Team</div>
+      <div class="chart-sub">Win Shares per $K spent · bubble size = roster size</div>
+      <div style="height:200px"><canvas id="teamEffChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Cap % by Tier</div>
+      <div class="chart-sub">Average cap allocation per tier</div>
+      <div style="height:200px"><canvas id="capTierChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Tier Composition</div>
+      <div class="chart-sub">Roster breakdown</div>
+      <div style="height:200px"><canvas id="tierDonut"></canvas></div>
+    </div>
+  </div>
+  <div class="filters-bar">
+    <input class="search-box" type="text" id="capSearch" placeholder="Search player…" oninput="capApply()">
+    <select id="capTeam" onchange="capApply()"><option value="">All Teams</option></select>
+    <select id="capPos" onchange="capApply()"><option value="">All Positions</option></select>
+    <select id="capTier" onchange="capApply()">
+      <option value="">All Tiers</option><option>T1</option><option>T2</option><option>T3</option><option>T4</option>
+    </select>
+    <select id="capContract" onchange="capApply()">
+      <option value="">All Contracts</option><option value="Rookie">Rookie</option><option value="Veteran">Veteran</option>
+    </select>
+  </div>
+  <div class="table-card">
+    <div class="table-toolbar">
+      <div class="table-toolbar-title">Player Roster — click for profile</div>
+      <div class="table-count" id="capCount">—</div>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr id="capHead"></tr></thead><tbody id="capBody"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- PLAYER DEVELOPMENT -->
+<div class="page" id="page-dev">
+  <div class="page-title">Player Development</div>
+  <div class="page-sub">GM evaluation framework · PIV component breakdown · WNBA-adjusted criteria</div>
+  <div class="piv-components">
+    <div class="comp-card fuchsia">
+      <span class="comp-pct" style="color:var(--t1)">45%</span>
+      <div class="comp-title">Impact</div>
+      <div class="comp-metrics" style="color:var(--t1)">PER · WS/40</div>
+      <div class="comp-desc">Production above average — adjusted for WNBA pace and minutes structure</div>
+    </div>
+    <div class="comp-card purple">
+      <span class="comp-pct" style="color:var(--t2)">25%</span>
+      <div class="comp-title">Efficiency</div>
+      <div class="comp-metrics" style="color:var(--t2)">TS% · FG%</div>
+      <div class="comp-desc">Quality of touches — separates elite scorers from volume stat players</div>
+    </div>
+    <div class="comp-card amber">
+      <span class="comp-pct" style="color:#d97706">20%</span>
+      <div class="comp-title">Contract Value</div>
+      <div class="comp-metrics" style="color:#d97706">WS / Cap%</div>
+      <div class="comp-desc">Surplus value — critical in a salary-capped league with smaller contracts</div>
+    </div>
+    <div class="comp-card green">
+      <span class="comp-pct" style="color:var(--green)">10%</span>
+      <div class="comp-title">Availability</div>
+      <div class="comp-metrics" style="color:var(--green)">Games Played</div>
+      <div class="comp-desc">Durability — 40-game season makes every game high-leverage</div>
+    </div>
+    <div class="comp-card teal">
+      <span class="comp-pct" style="color:var(--t3)">—</span>
+      <div class="comp-title">Defense</div>
+      <div class="comp-metrics" style="color:var(--t3)">STL · BLK · DRtg</div>
+      <div class="comp-desc">Defensive anchor potential — playoff differentiator</div>
+    </div>
+    <div class="comp-card slate">
+      <span class="comp-pct" style="color:#64748b">—</span>
+      <div class="comp-title">Playmaking</div>
+      <div class="comp-metrics" style="color:#64748b">AST · TOV</div>
+      <div class="comp-desc">Floor-raising ability — especially valuable in smaller WNBA rotations</div>
+    </div>
+  </div>
+  <div class="filters-bar">
+    <input class="search-box" type="text" id="devSearch" placeholder="Search player…" oninput="devApply()">
+    <div class="age-tabs">
+      <button class="age-tab active" data-age="" onclick="setAge(this)">All</button>
+      <button class="age-tab" data-age="rising" onclick="setAge(this)">Rising (≤23)</button>
+      <button class="age-tab" data-age="prime" onclick="setAge(this)">Prime (24-29)</button>
+      <button class="age-tab" data-age="veteran" onclick="setAge(this)">Veteran (30+)</button>
+    </div>
+    <select id="devTier" onchange="devApply()">
+      <option value="">All Tiers</option><option>T1</option><option>T2</option><option>T3</option><option>T4</option>
+    </select>
+    <select id="devSort" onchange="devApply()">
+      <option value="piv">Sort: PIV</option>
+      <option value="pts">Sort: PTS</option>
+      <option value="cap_pct">Sort: Cap%</option>
+      <option value="ws">Sort: WS</option>
+    </select>
+  </div>
+  <div class="player-grid" id="playerGrid"></div>
+</div>
+
+<!-- TEAM ROSTER -->
+<div class="page" id="page-roster">
+  <div class="page-title">Team Roster</div>
+  <div class="page-sub">Full roster analysis by position · click player for breakdown</div>
+  <div class="team-controls">
+    <select class="team-select" id="rosterTeam" onchange="renderRoster()"></select>
+    <select class="sort-sel" id="rosterSort" onchange="renderRoster()">
+      <option value="piv">Sort: PIV</option>
+      <option value="cap_pct">Sort: Cap%</option>
+      <option value="pts">Sort: PTS</option>
+    </select>
+  </div>
+  <div class="team-kpi-row" id="teamKPIs"></div>
+  <div class="team-mid-row">
+    <div class="tier-breakdown-card">
+      <div class="section-title">Tier Breakdown</div>
+      <div id="tierBreakdown"></div>
+    </div>
+    <div class="cw-card">
+      <div class="section-title">Championship Window</div>
+      <div class="cw-center"><div class="cw-ring" id="cwRing"><div class="cw-score" id="cwScore">—</div><div class="cw-label">/100</div></div></div>
+    </div>
+  </div>
+  <div id="rosterByPos"></div>
+</div>
+
+<!-- TIER FRAMEWORK -->
+<div class="page" id="page-tiers">
+  <div class="page-title">Tier Framework</div>
+  <div class="page-sub">WNBA-specific tier criteria · PER & WS-based (no BPM/VORP) · 2024–25</div>
+  <div class="tier-cards">
+    <div class="tier-card t1">
+      <div class="tier-num" style="color:var(--t1)">T1 <span style="float:right;font-size:.85rem;font-weight:400;color:var(--muted)" id="t1count">—</span></div>
+      <div class="tier-name-big">Franchise Cornerstone</div>
+      <div class="tier-piv-box" style="background:var(--t1bg);color:var(--t1)">PIV 75–100 · Max-contract caliber. League-defining talent.</div>
+      <div class="criteria-title">Hard Criteria</div>
+      <div class="criteria-item">PER ≥ 25</div>
+      <div class="criteria-item">WS/40 ≥ 0.200 (with PER ≥ 20)</div>
+      <div class="criteria-item">High TS% + elite scoring volume</div>
+      <div class="criteria-title">Examples</div>
+      <div class="examples-list">A'ja Wilson · Napheesa Collier · Breanna Stewart</div>
+    </div>
+    <div class="tier-card t2">
+      <div class="tier-num" style="color:var(--t2)">T2 <span style="float:right;font-size:.85rem;font-weight:400;color:var(--muted)" id="t2count">—</span></div>
+      <div class="tier-name-big">Quality Starter</div>
+      <div class="tier-piv-box" style="background:var(--t2bg);color:var(--t2)">PIV 55–74 · Reliable starter. Elevates roster. Strong complementary star.</div>
+      <div class="criteria-title">Hard Criteria</div>
+      <div class="criteria-item">PER 16–24</div>
+      <div class="criteria-item">WS/40 ≥ 0.120</div>
+      <div class="criteria-item">Consistent contributor, playoff-ready</div>
+      <div class="criteria-title">Examples</div>
+      <div class="examples-list">Kelsey Plum · Sabrina Ionescu · Nneka Ogwumike</div>
+    </div>
+    <div class="tier-card t3">
+      <div class="tier-num" style="color:var(--t3)">T3 <span style="float:right;font-size:.85rem;font-weight:400;color:var(--muted)" id="t3count">—</span></div>
+      <div class="tier-name-big">Rotation Player</div>
+      <div class="tier-piv-box" style="background:var(--t3bg);color:var(--t3)">PIV 35–54 · Solid contributor. Valuable in role. System-dependent.</div>
+      <div class="criteria-title">Hard Criteria</div>
+      <div class="criteria-item">PER 11–15</div>
+      <div class="criteria-item">WS/40 0.060–0.119</div>
+      <div class="criteria-item">Role-specific value</div>
+      <div class="criteria-title">Examples</div>
+      <div class="examples-list">Role players, defensive specialists</div>
+    </div>
+    <div class="tier-card t4">
+      <div class="tier-num" style="color:var(--t4)">T4 <span style="float:right;font-size:.85rem;font-weight:400;color:var(--muted)" id="t4count">—</span></div>
+      <div class="tier-name-big">Developmental</div>
+      <div class="tier-piv-box" style="background:var(--t4bg);color:var(--t4)">PIV 0–34 · Project player. Roster filler. Minimum deals.</div>
+      <div class="criteria-title">Hard Criteria</div>
+      <div class="criteria-item">PER &lt; 11</div>
+      <div class="criteria-item">WS/40 &lt; 0.060</div>
+      <div class="criteria-item">Limited roster impact</div>
+      <div class="criteria-title">Examples</div>
+      <div class="examples-list">Rookies · Two-way signings · Late cuts</div>
+    </div>
+  </div>
+  <div>
+    <div class="page-sub" style="font-weight:600;color:var(--text);font-size:.9rem;margin-bottom:.85rem">Top Players by Tier (2024–25)</div>
+    <div class="tbt-grid" id="tbtGrid"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    <div class="modal-head">
+      <div class="modal-name" id="mName">—</div>
+      <div class="modal-meta-row" id="mMeta"></div>
+    </div>
+    <div class="modal-body" id="mBody"></div>
+  </div>
+</div>
+
+<script>
+const DATA = [{"player": "A'ja Wilson", "team": "LVA", "pos": "C", "age": 0, "g": 40.0, "pts": 23.4, "ast": 3.1, "trb": 10.2, "stl": 1.6, "blk": 2.3, "fg_pct": 0.505, "ts_pct": 0.596, "per": 33.4, "ws": 9.5, "bpm": 0, "vorp": 0, "cap_hit": 200000.0, "cap_pct": 13.2705, "contract": "Veteran", "mp": 1247.0, "tier": "T1", "ws48": 0.3047, "piv": 82.6, "action": "Hold"}, {"player": "Aaliyah Nye", "team": "LVA", "pos": "G-F", "age": 0, "g": 44.0, "pts": 3.8, "ast": 0.5, "trb": 1.5, "stl": 0.3, "blk": 0.2, "fg_pct": 0.345, "ts_pct": 0.473, "per": 5.7, "ws": 0.0, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 671.0, "tier": "T4", "ws48": 0.0, "piv": 25.8, "action": "Hold"}, {"player": "Aari McDonald", "team": "IND", "pos": "G", "age": 0, "g": 20.0, "pts": 9.8, "ast": 4.7, "trb": 2.4, "stl": 1.3, "blk": 0.2, "fg_pct": 0.429, "ts_pct": 0.555, "per": 14.0, "ws": 1.4, "bpm": 0, "vorp": 0, "cap_hit": 89302.0, "cap_pct": 5.9254, "contract": "Veteran", "mp": 525.0, "tier": "T3", "ws48": 0.1067, "piv": 40.8, "action": "Hold"}, {"player": "Ajae Petty", "team": "DAL", "pos": "F", "age": 0, "g": 2.0, "pts": 0.0, "ast": 0.0, "trb": 0.5, "stl": 0.0, "blk": 0.0, "fg_pct": 0.0, "ts_pct": 0.0, "per": -0.9, "ws": 0.0, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 6.0, "tier": "T4", "ws48": 0.0, "piv": 1.8, "action": "Hold"}, {"player": "Alanna Smith", "team": "MIN", "pos": "F", "age": 0, "g": 42.0, "pts": 9.6, "ast": 2.9, "trb": 5.1, "stl": 1.3, "blk": 1.9, "fg_pct": 0.485, "ts_pct": 0.563, "per": 18.1, "ws": 4.8, "bpm": 0, "vorp": 0, "cap_hit": 150000.0, "cap_pct": 9.9529, "contract": "Rookie", "mp": 1114.0, "tier": "T2", "ws48": 0.1724, "piv": 58.3, "action": "Extend"}, {"player": "Alexis Prince", "team": "PHO", "pos": "F", "age": 0, "g": 1.0, "pts": 2.0, "ast": 1.0, "trb": 8.0, "stl": 0.0, "blk": 0.0, "fg_pct": 0.333, "ts_pct": 0.333, "per": -1.6, "ws": -0.1, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 22.0, "tier": "T4", "ws48": -0.1818, "piv": 1.8, "action": "Hold"}, {"player": "Aliyah Boston", "team": "IND", "pos": "C-F", "age": 0, "g": 44.0, "pts": 15.0, "ast": 3.7, "trb": 8.2, "stl": 1.2, "blk": 0.9, "fg_pct": 0.538, "ts_pct": 0.58, "per": 22.8, "ws": 7.1, "bpm": 0, "vorp": 0, "cap_hit": 75792.0, "cap_pct": 5.029, "contract": "Rookie", "mp": 1327.0, "tier": "T1", "ws48": 0.214, "piv": 76.6, "action": "Extend"}, {"player": "Allisha Gray", "team": "ATL", "pos": "G", "age": 0, "g": 42.0, "pts": 18.4, "ast": 3.5, "trb": 5.3, "stl": 1.1, "blk": 0.4, "fg_pct": 0.451, "ts_pct": 0.598, "per": 19.7, "ws": 7.7, "bpm": 0, "vorp": 0, "cap_hit": 185000.0, "cap_pct": 12.2752, "contract": "Veteran", "mp": 1451.0, "tier": "T2", "ws48": 0.2123, "piv": 65.7, "action": "Hold"}, {"player": "Alyssa Thomas", "team": "PHO", "pos": "F", "age": 0, "g": 39.0, "pts": 15.4, "ast": 9.2, "trb": 8.8, "stl": 1.6, "blk": 0.4, "fg_pct": 0.532, "ts_pct": 0.568, "per": 25.2, "ws": 6.9, "bpm": 0, "vorp": 0, "cap_hit": 218000.0, "cap_pct": 14.4649, "contract": "Veteran", "mp": 1221.0, "tier": "T1", "ws48": 0.226, "piv": 66.6, "action": "Hold"}, {"player": "Amy Okonkwo", "team": "DAL", "pos": "F", "age": 0, "g": 8.0, "pts": 11.0, "ast": 0.8, "trb": 3.1, "stl": 1.4, "blk": 0.1, "fg_pct": 0.492, "ts_pct": 0.63, "per": 21.9, "ws": 0.7, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 157.0, "tier": "T2", "ws48": 0.1783, "piv": 64.3, "action": "Extend"}, {"player": "Anastasiia Kosu", "team": "MIN", "pos": "F", "age": 0, "g": 21.0, "pts": 1.7, "ast": 0.2, "trb": 0.7, "stl": 0.0, "blk": 0.2, "fg_pct": 0.448, "ts_pct": 0.492, "per": 13.6, "ws": 0.1, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 80.0, "tier": "T3", "ws48": 0.05, "piv": 46.0, "action": "Hold"}, {"player": "Aneesah Morrow", "team": "CON", "pos": "F", "age": 0, "g": 41.0, "pts": 7.7, "ast": 0.5, "trb": 6.9, "stl": 0.8, "blk": 0.4, "fg_pct": 0.375, "ts_pct": 0.461, "per": 15.0, "ws": 0.7, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 775.0, "tier": "T3", "ws48": 0.0361, "piv": 47.8, "action": "Hold"}, {"player": "Angel Reese", "team": "CHI", "pos": "F", "age": 0, "g": 30.0, "pts": 14.7, "ast": 3.7, "trb": 12.6, "stl": 1.5, "blk": 0.7, "fg_pct": 0.458, "ts_pct": 0.537, "per": 19.9, "ws": 1.9, "bpm": 0, "vorp": 0, "cap_hit": 73439.0, "cap_pct": 4.8729, "contract": "Rookie", "mp": 947.0, "tier": "T2", "ws48": 0.0803, "piv": 48.9, "action": "Hold"}, {"player": "Ariel Atkins", "team": "CHI", "pos": "G", "age": 0, "g": 34.0, "pts": 13.1, "ast": 3.6, "trb": 3.4, "stl": 1.6, "blk": 0.7, "fg_pct": 0.444, "ts_pct": 0.551, "per": 16.0, "ws": 1.6, "bpm": 0, "vorp": 0, "cap_hit": 200000.0, "cap_pct": 13.2705, "contract": "Veteran", "mp": 970.0, "tier": "T2", "ws48": 0.066, "piv": 41.4, "action": "Hold"}, {"player": "Arike Ogunbowale", "team": "DAL", "pos": "G", "age": 0, "g": 29.0, "pts": 15.5, "ast": 4.1, "trb": 2.5, "stl": 1.3, "blk": 0.2, "fg_pct": 0.364, "ts_pct": 0.494, "per": 13.3, "ws": 0.8, "bpm": 0, "vorp": 0, "cap_hit": 241984.0, "cap_pct": 16.0563, "contract": "Veteran", "mp": 966.0, "tier": "T3", "ws48": 0.0331, "piv": 30.4, "action": "Hold"}, {"player": "Aziaha James", "team": "DAL", "pos": "G", "age": 0, "g": 38.0, "pts": 7.5, "ast": 1.6, "trb": 2.9, "stl": 0.6, "blk": 0.2, "fg_pct": 0.373, "ts_pct": 0.462, "per": 12.5, "ws": 0.1, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 673.0, "tier": "T3", "ws48": 0.0059, "piv": 43.8, "action": "Hold"}, {"player": "Azura Stevens", "team": "LAS", "pos": "F-C", "age": 0, "g": 44.0, "pts": 12.8, "ast": 2.1, "trb": 8.0, "stl": 1.2, "blk": 1.1, "fg_pct": 0.478, "ts_pct": 0.596, "per": 20.2, "ws": 4.7, "bpm": 0, "vorp": 0, "cap_hit": 215000.0, "cap_pct": 14.2658, "contract": "Veteran", "mp": 1249.0, "tier": "T2", "ws48": 0.1505, "piv": 58.2, "action": "Hold"}, {"player": "Breanna Stewart", "team": "NYL", "pos": "F", "age": 0, "g": 31.0, "pts": 18.3, "ast": 3.5, "trb": 6.5, "stl": 1.4, "blk": 1.4, "fg_pct": 0.461, "ts_pct": 0.57, "per": 23.7, "ws": 4.9, "bpm": 0, "vorp": 0, "cap_hit": 205000.0, "cap_pct": 13.6023, "contract": "Veteran", "mp": 948.0, "tier": "T1", "ws48": 0.2068, "piv": 59.2, "action": "Hold"}, {"player": "Bria Hartley", "team": "CON", "pos": "G", "age": 0, "g": 38.0, "pts": 8.9, "ast": 3.1, "trb": 2.0, "stl": 0.8, "blk": 0.0, "fg_pct": 0.362, "ts_pct": 0.505, "per": 10.5, "ws": -0.2, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 867.0, "tier": "T4", "ws48": -0.0092, "piv": 30.4, "action": "Hold"}, {"player": "Brianna Turner", "team": "IND", "pos": "F-C", "age": 0, "g": 27.0, "pts": 1.1, "ast": 0.6, "trb": 1.9, "stl": 0.1, "blk": 0.3, "fg_pct": 0.406, "ts_pct": 0.422, "per": 7.5, "ws": 0.3, "bpm": 0, "vorp": 0, "cap_hit": 150000.0, "cap_pct": 9.9529, "contract": "Veteran", "mp": 233.0, "tier": "T4", "ws48": 0.0515, "piv": 22.3, "action": "Hold"}, {"player": "Bridget Carleton", "team": "MIN", "pos": "F", "age": 0, "g": 44.0, "pts": 6.5, "ast": 2.0, "trb": 3.6, "stl": 0.8, "blk": 0.3, "fg_pct": 0.402, "ts_pct": 0.538, "per": 10.0, "ws": 3.4, "bpm": 0, "vorp": 0, "cap_hit": 125000.0, "cap_pct": 8.2941, "contract": "Veteran", "mp": 1227.0, "tier": "T3", "ws48": 0.1108, "piv": 45.3, "action": "Hold"}, {"player": "Brionna Jones", "team": "ATL", "pos": "F", "age": 0, "g": 44.0, "pts": 12.8, "ast": 2.2, "trb": 7.3, "stl": 1.1, "blk": 0.8, "fg_pct": 0.527, "ts_pct": 0.581, "per": 22.6, "ws": 6.8, "bpm": 0, "vorp": 0, "cap_hit": 212000.0, "cap_pct": 14.0668, "contract": "Veteran", "mp": 1169.0, "tier": "T1", "ws48": 0.2327, "piv": 66.8, "action": "Hold"}, {"player": "Brittney Griner", "team": "ATL", "pos": "C", "age": 0, "g": 39.0, "pts": 9.8, "ast": 0.8, "trb": 5.2, "stl": 0.1, "blk": 1.2, "fg_pct": 0.518, "ts_pct": 0.564, "per": 16.1, "ws": 2.4, "bpm": 0, "vorp": 0, "cap_hit": 150000.0, "cap_pct": 9.9529, "contract": "Veteran", "mp": 810.0, "tier": "T2", "ws48": 0.1185, "piv": 49.5, "action": "Hold"}, {"player": "Caitlin Clark", "team": "IND", "pos": "G", "age": 0, "g": 13.0, "pts": 16.5, "ast": 8.8, "trb": 5.0, "stl": 1.6, "blk": 0.5, "fg_pct": 0.367, "ts_pct": 0.491, "per": 16.5, "ws": 0.5, "bpm": 0, "vorp": 0, "cap_hit": 76535.0, "cap_pct": 5.0783, "contract": "Rookie", "mp": 404.0, "tier": "T2", "ws48": 0.0495, "piv": 30.8, "action": "Hold"}, {"player": "Cameron Brink", "team": "LAS", "pos": "F", "age": 0, "g": 19.0, "pts": 5.1, "ast": 0.5, "trb": 4.3, "stl": 0.5, "blk": 1.4, "fg_pct": 0.427, "ts_pct": 0.526, "per": 15.3, "ws": 0.3, "bpm": 0, "vorp": 0, "cap_hit": 76535.0, "cap_pct": 5.0783, "contract": "Rookie", "mp": 244.0, "tier": "T3", "ws48": 0.0492, "piv": 33.6, "action": "Hold"}, {"player": "Camryn Taylor", "team": "MIN", "pos": "F", "age": 0, "g": 6.0, "pts": 0.5, "ast": 0.2, "trb": 1.0, "stl": 0.0, "blk": 0.0, "fg_pct": 0.143, "ts_pct": 0.19, "per": -9.7, "ws": -0.2, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 23.0, "tier": "T4", "ws48": -0.3478, "piv": -4.1, "action": "Hold"}, {"player": "Carla Leite", "team": "GSV", "pos": "G", "age": 0, "g": 37.0, "pts": 7.2, "ast": 2.0, "trb": 1.3, "stl": 0.7, "blk": 0.1, "fg_pct": 0.387, "ts_pct": 0.505, "per": 11.5, "ws": 0.8, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Rookie", "mp": 637.0, "tier": "T3", "ws48": 0.0502, "piv": 47.7, "action": "Hold"}, {"player": "Cecilia Zandalasini", "team": "GSV", "pos": "F", "age": 0, "g": 19.0, "pts": 10.5, "ast": 1.7, "trb": 2.9, "stl": 0.9, "blk": 0.2, "fg_pct": 0.447, "ts_pct": 0.606, "per": 15.6, "ws": 1.6, "bpm": 0, "vorp": 0, "cap_hit": 64154.0, "cap_pct": 4.2568, "contract": "Veteran", "mp": 450.0, "tier": "T2", "ws48": 0.1422, "piv": 49.6, "action": "Hold"}, {"player": "Chelsea Gray", "team": "LVA", "pos": "G", "age": 0, "g": 44.0, "pts": 11.2, "ast": 5.4, "trb": 3.9, "stl": 1.4, "blk": 0.6, "fg_pct": 0.439, "ts_pct": 0.572, "per": 15.4, "ws": 3.5, "bpm": 0, "vorp": 0, "cap_hit": 196267.0, "cap_pct": 13.0228, "contract": "Veteran", "mp": 1368.0, "tier": "T3", "ws48": 0.1023, "piv": 49.0, "action": "Hold"}, {"player": "Cheyenne Parker-Tyus", "team": "LVA", "pos": "F", "age": 0, "g": 2.0, "pts": 8.0, "ast": 0.0, "trb": 1.0, "stl": 0.0, "blk": 0.0, "fg_pct": 0.625, "ts_pct": 0.752, "per": 37.3, "ws": 0.1, "bpm": 0, "vorp": 0, "cap_hit": 200000.0, "cap_pct": 13.2705, "contract": "Veteran", "mp": 14.0, "tier": "T1", "ws48": 0.2857, "piv": 65.5, "action": "Hold"}, {"player": "Christyn Williams", "team": "DAL", "pos": "G", "age": 0, "g": 4.0, "pts": 4.3, "ast": 0.8, "trb": 1.0, "stl": 0.0, "blk": 0.0, "fg_pct": 0.375, "ts_pct": 0.456, "per": 8.7, "ws": 0.0, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Rookie", "mp": 45.0, "tier": "T4", "ws48": 0.0, "piv": 18.6, "action": "Hold"}, {"player": "Courtney Vandersloot", "team": "CHI", "pos": "G", "age": 0, "g": 7.0, "pts": 10.6, "ast": 5.3, "trb": 3.1, "stl": 1.6, "blk": 0.3, "fg_pct": 0.439, "ts_pct": 0.516, "per": 15.4, "ws": 0.2, "bpm": 0, "vorp": 0, "cap_hit": 194670.0, "cap_pct": 12.9169, "contract": "Veteran", "mp": 191.0, "tier": "T3", "ws48": 0.0419, "piv": 29.4, "action": "Trade"}, {"player": "Courtney Williams", "team": "MIN", "pos": "G", "age": 0, "g": 44.0, "pts": 13.6, "ast": 6.2, "trb": 4.9, "stl": 1.3, "blk": 0.3, "fg_pct": 0.428, "ts_pct": 0.496, "per": 17.9, "ws": 4.4, "bpm": 0, "vorp": 0, "cap_hit": 175000.0, "cap_pct": 11.6117, "contract": "Veteran", "mp": 1260.0, "tier": "T2", "ws48": 0.1397, "piv": 50.0, "action": "Extend"}, {"player": "Crystal Bradford", "team": "LVA", "pos": "F", "age": 0, "g": 4.0, "pts": 1.0, "ast": 0.3, "trb": 1.3, "stl": 0.5, "blk": 0.0, "fg_pct": 0.333, "ts_pct": 0.333, "per": 7.0, "ws": 0.0, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 24.0, "tier": "T4", "ws48": 0.0, "piv": 9.1, "action": "Hold"}, {"player": "Damiris Dantas", "team": "IND", "pos": "C-F", "age": 0, "g": 38.0, "pts": 4.6, "ast": 0.7, "trb": 2.4, "stl": 0.2, "blk": 0.1, "fg_pct": 0.348, "ts_pct": 0.453, "per": 8.4, "ws": 0.1, "bpm": 0, "vorp": 0, "cap_hit": 97100.0, "cap_pct": 6.4428, "contract": "Veteran", "mp": 439.0, "tier": "T4", "ws48": 0.0091, "piv": 24.1, "action": "Hold"}, {"player": "Dana Evans", "team": "LVA", "pos": "G", "age": 0, "g": 44.0, "pts": 6.6, "ast": 2.2, "trb": 1.1, "stl": 0.4, "blk": 0.1, "fg_pct": 0.389, "ts_pct": 0.488, "per": 10.8, "ws": 0.8, "bpm": 0, "vorp": 0, "cap_hit": 78469.0, "cap_pct": 5.2066, "contract": "Veteran", "mp": 777.0, "tier": "T4", "ws48": 0.0412, "piv": 34.4, "action": "Hold"}, {"player": "Dearica Hamby", "team": "LAS", "pos": "F", "age": 0, "g": 44.0, "pts": 18.4, "ast": 3.3, "trb": 7.9, "stl": 1.6, "blk": 0.5, "fg_pct": 0.572, "ts_pct": 0.605, "per": 23.8, "ws": 5.6, "bpm": 0, "vorp": 0, "cap_hit": 189000.0, "cap_pct": 12.5406, "contract": "Veteran", "mp": 1374.0, "tier": "T2", "ws48": 0.163, "piv": 65.7, "action": "Hold"}, {"player": "Dominique Malonga", "team": "SEA", "pos": "C", "age": 0, "g": 42.0, "pts": 7.7, "ast": 0.9, "trb": 4.6, "stl": 0.4, "blk": 0.7, "fg_pct": 0.551, "ts_pct": 0.566, "per": 20.0, "ws": 1.9, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 600.0, "tier": "T2", "ws48": 0.1267, "piv": 65.4, "action": "Extend"}, {"player": "Elizabeth Kitley", "team": "LVA", "pos": "C", "age": 0, "g": 12.0, "pts": 1.3, "ast": 0.1, "trb": 1.4, "stl": 0.3, "blk": 0.5, "fg_pct": 0.304, "ts_pct": 0.314, "per": 1.0, "ws": -0.2, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Rookie", "mp": 98.0, "tier": "T4", "ws48": -0.0816, "piv": 5.5, "action": "Hold"}, {"player": "Elizabeth Williams", "team": "CHI", "pos": "C-F", "age": 0, "g": 43.0, "pts": 8.5, "ast": 1.8, "trb": 5.2, "stl": 0.7, "blk": 0.9, "fg_pct": 0.48, "ts_pct": 0.502, "per": 17.2, "ws": 1.3, "bpm": 0, "vorp": 0, "cap_hit": 165000.0, "cap_pct": 10.9482, "contract": "Veteran", "mp": 906.0, "tier": "T2", "ws48": 0.0574, "piv": 41.6, "action": "Hold"}, {"player": "Emily Engstler", "team": "WAS", "pos": "F", "age": 0, "g": 40.0, "pts": 3.7, "ast": 1.5, "trb": 3.3, "stl": 0.7, "blk": 0.7, "fg_pct": 0.396, "ts_pct": 0.487, "per": 14.7, "ws": 1.1, "bpm": 0, "vorp": 0, "cap_hit": 64154.0, "cap_pct": 4.2568, "contract": "Rookie", "mp": 512.0, "tier": "T3", "ws48": 0.0859, "piv": 40.7, "action": "Hold"}, {"player": "Emma Cannon", "team": "LAS", "pos": "F", "age": 0, "g": 21.0, "pts": 4.4, "ast": 0.4, "trb": 1.8, "stl": 0.5, "blk": 0.0, "fg_pct": 0.508, "ts_pct": 0.636, "per": 13.6, "ws": 0.4, "bpm": 0, "vorp": 0, "cap_hit": 27280.0, "cap_pct": 1.8101, "contract": "Veteran", "mp": 213.0, "tier": "T3", "ws48": 0.0751, "piv": 45.3, "action": "Hold"}, {"player": "Emma Meesseman", "team": "NYL", "pos": "F", "age": 0, "g": 17.0, "pts": 13.4, "ast": 3.2, "trb": 5.1, "stl": 1.2, "blk": 0.8, "fg_pct": 0.572, "ts_pct": 0.65, "per": 22.8, "ws": 2.1, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 440.0, "tier": "T2", "ws48": 0.1909, "piv": 69.8, "action": "Extend"}, {"player": "Erica Wheeler", "team": "SEA", "pos": "G", "age": 0, "g": 44.0, "pts": 10.3, "ast": 3.3, "trb": 2.7, "stl": 1.3, "blk": 0.2, "fg_pct": 0.4, "ts_pct": 0.515, "per": 13.2, "ws": 2.1, "bpm": 0, "vorp": 0, "cap_hit": 202154.0, "cap_pct": 13.4134, "contract": "Veteran", "mp": 1126.0, "tier": "T3", "ws48": 0.0746, "piv": 39.6, "action": "Hold"}, {"player": "Ezi Magbegor", "team": "SEA", "pos": "F-C", "age": 0, "g": 44.0, "pts": 8.0, "ast": 2.1, "trb": 6.2, "stl": 0.7, "blk": 2.2, "fg_pct": 0.493, "ts_pct": 0.547, "per": 16.1, "ws": 4.5, "bpm": 0, "vorp": 0, "cap_hit": 155000.0, "cap_pct": 10.2847, "contract": "Veteran", "mp": 1203.0, "tier": "T2", "ws48": 0.1496, "piv": 54.5, "action": "Extend"}, {"player": "Gabby Williams", "team": "SEA", "pos": "F", "age": 0, "g": 44.0, "pts": 11.6, "ast": 4.2, "trb": 4.3, "stl": 2.3, "blk": 0.5, "fg_pct": 0.422, "ts_pct": 0.508, "per": 15.6, "ws": 3.4, "bpm": 0, "vorp": 0, "cap_hit": 23490.0, "cap_pct": 1.5586, "contract": "Veteran", "mp": 1391.0, "tier": "T3", "ws48": 0.0978, "piv": 59.4, "action": "Extend"}, {"player": "Hailey Van Lith", "team": "CHI", "pos": "G", "age": 0, "g": 29.0, "pts": 3.5, "ast": 1.6, "trb": 1.1, "stl": 0.4, "blk": 0.1, "fg_pct": 0.339, "ts_pct": 0.416, "per": 5.6, "ws": -0.9, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 361.0, "tier": "T4", "ws48": -0.0997, "piv": 18.8, "action": "Hold"}, {"player": "Haley Peters", "team": "CON", "pos": "F-G", "age": 0, "g": 33.0, "pts": 2.1, "ast": 0.8, "trb": 2.2, "stl": 0.3, "blk": 0.1, "fg_pct": 0.305, "ts_pct": 0.388, "per": 5.0, "ws": -0.5, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 380.0, "tier": "T4", "ws48": -0.0526, "piv": 17.0, "action": "Hold"}, {"player": "Iliana Rupert", "team": "GSV", "pos": "C", "age": 0, "g": 21.0, "pts": 9.3, "ast": 1.6, "trb": 3.9, "stl": 0.6, "blk": 0.6, "fg_pct": 0.438, "ts_pct": 0.609, "per": 15.9, "ws": 1.9, "bpm": 0, "vorp": 0, "cap_hit": 74398.0, "cap_pct": 4.9365, "contract": "Veteran", "mp": 486.0, "tier": "T2", "ws48": 0.1564, "piv": 51.1, "action": "Extend"}, {"player": "Isabelle Harrison", "team": "NYL", "pos": "F", "age": 0, "g": 34.0, "pts": 4.9, "ast": 0.7, "trb": 2.6, "stl": 0.6, "blk": 0.1, "fg_pct": 0.485, "ts_pct": 0.546, "per": 17.2, "ws": 1.2, "bpm": 0, "vorp": 0, "cap_hit": 160000.0, "cap_pct": 10.6164, "contract": "Veteran", "mp": 360.0, "tier": "T2", "ws48": 0.1333, "piv": 45.6, "action": "Hold"}, {"player": "JJ Quinerly", "team": "DAL", "pos": "G", "age": 0, "g": 34.0, "pts": 6.5, "ast": 2.3, "trb": 1.9, "stl": 0.9, "blk": 0.2, "fg_pct": 0.426, "ts_pct": 0.529, "per": 13.2, "ws": 0.4, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 539.0, "tier": "T3", "ws48": 0.0297, "piv": 49.5, "action": "Hold"}, {"player": "Jackie Young", "team": "LVA", "pos": "G", "age": 0, "g": 44.0, "pts": 16.5, "ast": 5.1, "trb": 4.5, "stl": 1.3, "blk": 0.4, "fg_pct": 0.475, "ts_pct": 0.596, "per": 22.3, "ws": 6.6, "bpm": 0, "vorp": 0, "cap_hit": 169950.0, "cap_pct": 11.2766, "contract": "Veteran", "mp": 1336.0, "tier": "T2", "ws48": 0.1976, "piv": 67.0, "action": "Extend"}, {"player": "Jade Melbourne", "team": "WAS", "pos": "G", "age": 0, "g": 43.0, "pts": 5.9, "ast": 2.9, "trb": 1.9, "stl": 0.6, "blk": 0.2, "fg_pct": 0.4, "ts_pct": 0.496, "per": 7.4, "ws": 0.2, "bpm": 0, "vorp": 0, "cap_hit": 64154.0, "cap_pct": 4.2568, "contract": "Rookie", "mp": 1008.0, "tier": "T4", "ws48": 0.0079, "piv": 28.6, "action": "Hold"}, {"player": "Jaelyn Brown", "team": "CON", "pos": "G-F", "age": 0, "g": 10.0, "pts": 3.7, "ast": 0.1, "trb": 1.2, "stl": 0.5, "blk": 0.2, "fg_pct": 0.378, "ts_pct": 0.488, "per": 6.3, "ws": -0.1, "bpm": 0, "vorp": 0, "cap_hit": 64154.0, "cap_pct": 4.2568, "contract": "Veteran", "mp": 131.0, "tier": "T4", "ws48": -0.0305, "piv": 20.1, "action": "Hold"}, {"player": "Janelle Sala\u00fcn", "team": "GSV", "pos": "F", "age": 0, "g": 36.0, "pts": 11.3, "ast": 1.2, "trb": 5.1, "stl": 0.6, "blk": 0.1, "fg_pct": 0.406, "ts_pct": 0.523, "per": 12.0, "ws": 1.8, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 973.0, "tier": "T3", "ws48": 0.074, "piv": 50.3, "action": "Extend"}, {"player": "Jessica Shepard", "team": "MIN", "pos": "F", "age": 0, "g": 40.0, "pts": 8.0, "ast": 2.6, "trb": 7.3, "stl": 0.5, "blk": 0.1, "fg_pct": 0.638, "ts_pct": 0.634, "per": 21.1, "ws": 4.6, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 835.0, "tier": "T1", "ws48": 0.2204, "piv": 74.1, "action": "Extend"}, {"player": "Jewell Loyd", "team": "LVA", "pos": "G", "age": 0, "g": 44.0, "pts": 11.2, "ast": 1.8, "trb": 3.2, "stl": 1.2, "blk": 0.3, "fg_pct": 0.389, "ts_pct": 0.536, "per": 13.4, "ws": 2.8, "bpm": 0, "vorp": 0, "cap_hit": 241984.0, "cap_pct": 16.0563, "contract": "Veteran", "mp": 1245.0, "tier": "T3", "ws48": 0.09, "piv": 41.9, "action": "Hold"}, {"player": "Jonquel Jones", "team": "NYL", "pos": "C", "age": 0, "g": 31.0, "pts": 13.6, "ast": 2.7, "trb": 8.1, "stl": 0.5, "blk": 1.1, "fg_pct": 0.49, "ts_pct": 0.611, "per": 20.3, "ws": 3.6, "bpm": 0, "vorp": 0, "cap_hit": 190000.0, "cap_pct": 12.607, "contract": "Veteran", "mp": 830.0, "tier": "T2", "ws48": 0.1735, "piv": 56.6, "action": "Hold"}, {"player": "Jordin Canada", "team": "ATL", "pos": "G", "age": 0, "g": 28.0, "pts": 11.2, "ast": 5.7, "trb": 3.3, "stl": 1.7, "blk": 0.3, "fg_pct": 0.396, "ts_pct": 0.498, "per": 16.5, "ws": 2.6, "bpm": 0, "vorp": 0, "cap_hit": 185000.0, "cap_pct": 12.2752, "contract": "Veteran", "mp": 783.0, "tier": "T2", "ws48": 0.1328, "piv": 41.2, "action": "Hold"}, {"player": "Joyner Holmes", "team": "LVA", "pos": "F", "age": 0, "g": 6.0, "pts": 1.2, "ast": 0.0, "trb": 1.0, "stl": 0.0, "blk": 0.0, "fg_pct": 0.25, "ts_pct": 0.292, "per": -4.4, "ws": -0.1, "bpm": 0, "vorp": 0, "cap_hit": 61380.0, "cap_pct": 4.0727, "contract": "Veteran", "mp": 29.0, "tier": "T4", "ws48": -0.1379, "piv": -0.0, "action": "Hold"}, {"player": "Julie Allemand", "team": "LAS", "pos": "G", "age": 0, "g": 34.0, "pts": 5.4, "ast": 5.0, "trb": 3.7, "stl": 1.3, "blk": 0.0, "fg_pct": 0.44, "ts_pct": 0.547, "per": 11.5, "ws": 1.5, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 963.0, "tier": "T3", "ws48": 0.0623, "piv": 51.0, "action": "Extend"}, {"player": "Kahleah Copper", "team": "PHO", "pos": "G-F", "age": 0, "g": 28.0, "pts": 15.6, "ast": 1.5, "trb": 2.9, "stl": 1.1, "blk": 0.2, "fg_pct": 0.424, "ts_pct": 0.548, "per": 14.4, "ws": 1.2, "bpm": 0, "vorp": 0, "cap_hit": 241984.0, "cap_pct": 16.0563, "contract": "Veteran", "mp": 752.0, "tier": "T3", "ws48": 0.0638, "piv": 37.2, "action": "Hold"}, {"player": "Kaitlyn Chen", "team": "GSV", "pos": "G", "age": 0, "g": 24.0, "pts": 2.0, "ast": 1.0, "trb": 0.9, "stl": 0.2, "blk": 0.0, "fg_pct": 0.38, "ts_pct": 0.452, "per": 4.6, "ws": -0.1, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 247.0, "tier": "T4", "ws48": -0.0162, "piv": 19.8, "action": "Hold"}, {"player": "Kalani Brown", "team": "PHO", "pos": "C", "age": 0, "g": 29.0, "pts": 5.1, "ast": 0.6, "trb": 4.0, "stl": 0.2, "blk": 0.6, "fg_pct": 0.615, "ts_pct": 0.664, "per": 18.8, "ws": 1.7, "bpm": 0, "vorp": 0, "cap_hit": 125000.0, "cap_pct": 8.2941, "contract": "Veteran", "mp": 370.0, "tier": "T2", "ws48": 0.1838, "piv": 58.1, "action": "Extend"}, {"player": "Kamiah Smalls", "team": "ATL", "pos": "G", "age": 0, "g": 3.0, "pts": 0.0, "ast": 0.0, "trb": 0.0, "stl": 0.0, "blk": 0.0, "fg_pct": 0.0, "ts_pct": 0.0, "per": 0.0, "ws": 0.0, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 3.0, "tier": "T4", "ws48": 0.0, "piv": 2.7, "action": "Hold"}, {"player": "Kamilla Cardoso", "team": "CHI", "pos": "C", "age": 0, "g": 40.0, "pts": 13.6, "ast": 2.5, "trb": 8.5, "stl": 0.4, "blk": 1.2, "fg_pct": 0.528, "ts_pct": 0.565, "per": 19.8, "ws": 2.5, "bpm": 0, "vorp": 0, "cap_hit": 76535.0, "cap_pct": 5.0783, "contract": "Rookie", "mp": 1102.0, "tier": "T2", "ws48": 0.0907, "piv": 56.6, "action": "Extend"}, {"player": "Kariata Diaby", "team": "CON", "pos": "C", "age": 0, "g": 13.0, "pts": 1.9, "ast": 0.4, "trb": 1.0, "stl": 0.5, "blk": 0.1, "fg_pct": 0.5, "ts_pct": 0.62, "per": 5.8, "ws": -0.1, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 103.0, "tier": "T4", "ws48": -0.0388, "piv": 30.5, "action": "Hold"}, {"player": "Karlie Samuelson", "team": "MIN", "pos": "G", "age": 0, "g": 16.0, "pts": 3.3, "ast": 1.1, "trb": 1.3, "stl": 0.4, "blk": 0.1, "fg_pct": 0.333, "ts_pct": 0.55, "per": 6.8, "ws": 0.5, "bpm": 0, "vorp": 0, "cap_hit": 125000.0, "cap_pct": 8.2941, "contract": "Veteran", "mp": 228.0, "tier": "T3", "ws48": 0.0877, "piv": 27.9, "action": "Hold"}, {"player": "Kate Martin", "team": "GSV", "pos": "G", "age": 0, "g": 42.0, "pts": 6.2, "ast": 1.0, "trb": 2.7, "stl": 0.4, "blk": 0.1, "fg_pct": 0.323, "ts_pct": 0.459, "per": 9.4, "ws": 0.6, "bpm": 0, "vorp": 0, "cap_hit": 67249.0, "cap_pct": 4.4621, "contract": "Rookie", "mp": 687.0, "tier": "T4", "ws48": 0.0349, "piv": 29.3, "action": "Hold"}, {"player": "Kathryn Westbeld", "team": "PHO", "pos": "F", "age": 0, "g": 43.0, "pts": 5.1, "ast": 0.9, "trb": 2.5, "stl": 0.8, "blk": 0.6, "fg_pct": 0.358, "ts_pct": 0.482, "per": 10.5, "ws": 1.6, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 792.0, "tier": "T3", "ws48": 0.0808, "piv": 47.7, "action": "Hold"}, {"player": "Kayla McBride", "team": "MIN", "pos": "G", "age": 0, "g": 39.0, "pts": 14.2, "ast": 3.5, "trb": 2.3, "stl": 1.3, "blk": 0.1, "fg_pct": 0.416, "ts_pct": 0.584, "per": 16.0, "ws": 4.6, "bpm": 0, "vorp": 0, "cap_hit": 208000.0, "cap_pct": 13.8013, "contract": "Veteran", "mp": 1220.0, "tier": "T2", "ws48": 0.1508, "piv": 52.1, "action": "Hold"}, {"player": "Kayla Thornton", "team": "GSV", "pos": "F", "age": 0, "g": 22.0, "pts": 14.0, "ast": 1.5, "trb": 7.0, "stl": 1.3, "blk": 0.2, "fg_pct": 0.362, "ts_pct": 0.493, "per": 15.1, "ws": 1.7, "bpm": 0, "vorp": 0, "cap_hit": 110000.0, "cap_pct": 7.2988, "contract": "Veteran", "mp": 662.0, "tier": "T3", "ws48": 0.1027, "piv": 36.9, "action": "Hold"}, {"player": "Kelsey Mitchell", "team": "IND", "pos": "G", "age": 0, "g": 44.0, "pts": 20.2, "ast": 3.4, "trb": 1.8, "stl": 0.9, "blk": 0.2, "fg_pct": 0.456, "ts_pct": 0.574, "per": 19.9, "ws": 5.6, "bpm": 0, "vorp": 0, "cap_hit": 212000.0, "cap_pct": 14.0668, "contract": "Veteran", "mp": 1381.0, "tier": "T2", "ws48": 0.1622, "piv": 58.1, "action": "Hold"}, {"player": "Kelsey Plum", "team": "LAS", "pos": "G", "age": 0, "g": 43.0, "pts": 19.5, "ast": 5.7, "trb": 3.1, "stl": 1.2, "blk": 0.1, "fg_pct": 0.422, "ts_pct": 0.578, "per": 18.1, "ws": 4.2, "bpm": 0, "vorp": 0, "cap_hit": 200000.0, "cap_pct": 13.2705, "contract": "Veteran", "mp": 1508.0, "tier": "T2", "ws48": 0.1114, "piv": 52.2, "action": "Hold"}, {"player": "Kennedy Burke", "team": "NYL", "pos": "G-F", "age": 0, "g": 36.0, "pts": 8.1, "ast": 1.3, "trb": 2.4, "stl": 0.8, "blk": 0.4, "fg_pct": 0.468, "ts_pct": 0.602, "per": 13.9, "ws": 2.1, "bpm": 0, "vorp": 0, "cap_hit": 76535.0, "cap_pct": 5.0783, "contract": "Veteran", "mp": 779.0, "tier": "T3", "ws48": 0.1078, "piv": 51.5, "action": "Extend"}, {"player": "Kia Nurse", "team": "CHI", "pos": "G", "age": 0, "g": 44.0, "pts": 7.2, "ast": 1.3, "trb": 2.3, "stl": 0.3, "blk": 0.0, "fg_pct": 0.354, "ts_pct": 0.496, "per": 7.1, "ws": -0.6, "bpm": 0, "vorp": 0, "cap_hit": 142500.0, "cap_pct": 9.4552, "contract": "Veteran", "mp": 962.0, "tier": "T4", "ws48": -0.0249, "piv": 28.5, "action": "Hold"}, {"player": "Kiah Stokes", "team": "LVA", "pos": "C", "age": 0, "g": 40.0, "pts": 1.1, "ast": 0.4, "trb": 3.6, "stl": 0.4, "blk": 0.4, "fg_pct": 0.353, "ts_pct": 0.404, "per": 7.2, "ws": 0.8, "bpm": 0, "vorp": 0, "cap_hit": 100000.0, "cap_pct": 6.6353, "contract": "Veteran", "mp": 514.0, "tier": "T3", "ws48": 0.0623, "piv": 25.3, "action": "Hold"}, {"player": "Kiana Williams", "team": "PHO", "pos": "G", "age": 0, "g": 11.0, "pts": 4.1, "ast": 0.9, "trb": 1.0, "stl": 0.3, "blk": 0.0, "fg_pct": 0.425, "ts_pct": 0.539, "per": 11.9, "ws": 0.2, "bpm": 0, "vorp": 0, "cap_hit": 32395.0, "cap_pct": 2.1495, "contract": "Veteran", "mp": 107.0, "tier": "T3", "ws48": 0.0748, "piv": 31.8, "action": "Hold"}, {"player": "Kierstan Bell", "team": "LVA", "pos": "F", "age": 0, "g": 35.0, "pts": 4.2, "ast": 0.7, "trb": 1.8, "stl": 0.4, "blk": 0.3, "fg_pct": 0.338, "ts_pct": 0.455, "per": 10.3, "ws": 0.3, "bpm": 0, "vorp": 0, "cap_hit": 74398.0, "cap_pct": 4.9365, "contract": "Rookie", "mp": 427.0, "tier": "T4", "ws48": 0.0281, "piv": 26.6, "action": "Hold"}, {"player": "Kiki Iriafen", "team": "WAS", "pos": "F", "age": 0, "g": 44.0, "pts": 13.3, "ast": 1.6, "trb": 8.5, "stl": 0.6, "blk": 0.2, "fg_pct": 0.488, "ts_pct": 0.548, "per": 17.3, "ws": 3.0, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 1185.0, "tier": "T2", "ws48": 0.1013, "piv": 60.5, "action": "Extend"}, {"player": "Kitija Laksa", "team": "PHO", "pos": "G", "age": 0, "g": 33.0, "pts": 5.9, "ast": 0.6, "trb": 1.2, "stl": 0.4, "blk": 0.2, "fg_pct": 0.367, "ts_pct": 0.505, "per": 7.4, "ws": 0.6, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 626.0, "tier": "T4", "ws48": 0.0383, "piv": 42.7, "action": "Hold"}, {"player": "Kyara Linskens", "team": "GSV", "pos": "C", "age": 0, "g": 4.0, "pts": 1.0, "ast": 0.3, "trb": 1.5, "stl": 0.3, "blk": 0.8, "fg_pct": 0.4, "ts_pct": 0.4, "per": 5.0, "ws": 0.0, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 27.0, "tier": "T4", "ws48": 0.0, "piv": 12.8, "action": "Hold"}, {"player": "Kyra Lambert", "team": "IND", "pos": "G", "age": 0, "g": 1.0, "pts": 0.0, "ast": 0.0, "trb": 0.0, "stl": 0.0, "blk": 0.0, "fg_pct": 0.0, "ts_pct": 0.0, "per": 0.0, "ws": 0.0, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 0.0, "tier": "T4", "ws48": 0.0, "piv": 2.2, "action": "Hold"}, {"player": "Laeticia Amihere", "team": "GSV", "pos": "F", "age": 0, "g": 29.0, "pts": 5.4, "ast": 0.9, "trb": 4.3, "stl": 0.6, "blk": 0.4, "fg_pct": 0.456, "ts_pct": 0.55, "per": 18.3, "ws": 1.5, "bpm": 0, "vorp": 0, "cap_hit": 72727.0, "cap_pct": 4.8256, "contract": "Rookie", "mp": 385.0, "tier": "T2", "ws48": 0.1558, "piv": 50.0, "action": "Extend"}, {"player": "Leonie Fiebich", "team": "NYL", "pos": "F", "age": 0, "g": 37.0, "pts": 8.7, "ast": 1.7, "trb": 3.5, "stl": 0.9, "blk": 0.4, "fg_pct": 0.489, "ts_pct": 0.646, "per": 12.1, "ws": 3.0, "bpm": 0, "vorp": 0, "cap_hit": 67249.0, "cap_pct": 4.4621, "contract": "Veteran", "mp": 1041.0, "tier": "T3", "ws48": 0.1153, "piv": 58.8, "action": "Extend"}, {"player": "Lexi Held", "team": "PHO", "pos": "G", "age": 0, "g": 32.0, "pts": 5.3, "ast": 1.1, "trb": 1.1, "stl": 0.7, "blk": 0.2, "fg_pct": 0.378, "ts_pct": 0.489, "per": 9.8, "ws": 0.4, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 471.0, "tier": "T4", "ws48": 0.034, "piv": 43.4, "action": "Hold"}, {"player": "Lexie Brown", "team": "SEA", "pos": "G", "age": 0, "g": 24.0, "pts": 2.1, "ast": 1.0, "trb": 0.7, "stl": 0.4, "blk": 0.0, "fg_pct": 0.354, "ts_pct": 0.487, "per": 8.5, "ws": 0.4, "bpm": 0, "vorp": 0, "cap_hit": 80340.0, "cap_pct": 5.3308, "contract": "Veteran", "mp": 227.0, "tier": "T3", "ws48": 0.0705, "piv": 27.1, "action": "Hold"}, {"player": "Lexie Hull", "team": "IND", "pos": "G", "age": 0, "g": 44.0, "pts": 7.2, "ast": 1.8, "trb": 4.3, "stl": 1.2, "blk": 0.2, "fg_pct": 0.395, "ts_pct": 0.503, "per": 10.5, "ws": 2.7, "bpm": 0, "vorp": 0, "cap_hit": 77669.0, "cap_pct": 5.1535, "contract": "Rookie", "mp": 1189.0, "tier": "T3", "ws48": 0.0908, "piv": 44.8, "action": "Hold"}, {"player": "Le\u00efla Lacan", "team": "CON", "pos": "G", "age": 0, "g": 25.0, "pts": 10.4, "ast": 3.7, "trb": 2.4, "stl": 2.2, "blk": 0.2, "fg_pct": 0.477, "ts_pct": 0.548, "per": 15.9, "ws": 1.2, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Rookie", "mp": 665.0, "tier": "T3", "ws48": 0.0722, "piv": 53.5, "action": "Extend"}, {"player": "Lindsay Allen", "team": "CON", "pos": "G", "age": 0, "g": 31.0, "pts": 2.4, "ast": 2.0, "trb": 1.0, "stl": 0.3, "blk": 0.2, "fg_pct": 0.4, "ts_pct": 0.493, "per": 6.6, "ws": -0.3, "bpm": 0, "vorp": 0, "cap_hit": 90000.0, "cap_pct": 5.9717, "contract": "Veteran", "mp": 450.0, "tier": "T4", "ws48": -0.0267, "piv": 25.8, "action": "Hold"}, {"player": "Lucy Olsen", "team": "WAS", "pos": "G", "age": 0, "g": 41.0, "pts": 4.0, "ast": 1.2, "trb": 1.2, "stl": 0.4, "blk": 0.1, "fg_pct": 0.415, "ts_pct": 0.496, "per": 10.4, "ws": 0.6, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 508.0, "tier": "T4", "ws48": 0.0472, "piv": 47.6, "action": "Hold"}, {"player": "Luisa Geiselsoder", "team": "DAL", "pos": "C", "age": 0, "g": 28.0, "pts": 6.9, "ast": 1.6, "trb": 4.8, "stl": 0.8, "blk": 0.7, "fg_pct": 0.425, "ts_pct": 0.522, "per": 12.0, "ws": 0.8, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 628.0, "tier": "T3", "ws48": 0.051, "piv": 47.8, "action": "Hold"}, {"player": "Mackenzie Holmes", "team": "SEA", "pos": "F", "age": 0, "g": 10.0, "pts": 1.0, "ast": 0.2, "trb": 0.9, "stl": 0.5, "blk": 0.1, "fg_pct": 0.714, "ts_pct": 0.714, "per": 14.0, "ws": 0.3, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Rookie", "mp": 58.0, "tier": "T2", "ws48": 0.2069, "piv": 63.4, "action": "Extend"}, {"player": "Maddy Siegrist", "team": "DAL", "pos": "F", "age": 0, "g": 26.0, "pts": 12.7, "ast": 0.8, "trb": 4.3, "stl": 0.7, "blk": 0.6, "fg_pct": 0.491, "ts_pct": 0.56, "per": 17.4, "ws": 1.8, "bpm": 0, "vorp": 0, "cap_hit": 75792.0, "cap_pct": 5.029, "contract": "Rookie", "mp": 702.0, "tier": "T2", "ws48": 0.1026, "piv": 48.4, "action": "Hold"}, {"player": "Maddy Westbeld", "team": "CHI", "pos": "F", "age": 0, "g": 26.0, "pts": 4.1, "ast": 0.9, "trb": 2.4, "stl": 0.5, "blk": 0.3, "fg_pct": 0.362, "ts_pct": 0.478, "per": 10.4, "ws": 0.2, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 354.0, "tier": "T4", "ws48": 0.0226, "piv": 41.0, "action": "Hold"}, {"player": "Madison Scott", "team": "WAS", "pos": "G-F", "age": 0, "g": 9.0, "pts": 1.6, "ast": 0.2, "trb": 0.1, "stl": 0.2, "blk": 0.0, "fg_pct": 0.455, "ts_pct": 0.549, "per": 8.4, "ws": 0.1, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 47.0, "tier": "T3", "ws48": 0.0851, "piv": 44.4, "action": "Hold"}, {"player": "Makayla Timpson", "team": "IND", "pos": "F-C", "age": 0, "g": 31.0, "pts": 2.6, "ast": 0.0, "trb": 1.8, "stl": 0.4, "blk": 0.3, "fg_pct": 0.561, "ts_pct": 0.595, "per": 17.8, "ws": 1.0, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 219.0, "tier": "T2", "ws48": 0.1826, "piv": 65.5, "action": "Extend"}, {"player": "Mamignan Tour\u00e9", "team": "CON", "pos": "G", "age": 0, "g": 18.0, "pts": 2.0, "ast": 0.5, "trb": 0.4, "stl": 0.4, "blk": 0.0, "fg_pct": 0.359, "ts_pct": 0.462, "per": 5.1, "ws": -0.2, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 147.0, "tier": "T4", "ws48": -0.0544, "piv": 19.1, "action": "Hold"}, {"player": "Maria Kliundikova", "team": "MIN", "pos": "F", "age": 0, "g": 34.0, "pts": 4.4, "ast": 0.6, "trb": 3.0, "stl": 0.7, "blk": 0.8, "fg_pct": 0.5, "ts_pct": 0.539, "per": 19.6, "ws": 1.6, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 373.0, "tier": "T2", "ws48": 0.1716, "piv": 62.8, "action": "Extend"}, {"player": "Marina Mabrey", "team": "CON", "pos": "G", "age": 0, "g": 35.0, "pts": 14.4, "ast": 4.0, "trb": 4.2, "stl": 0.7, "blk": 0.3, "fg_pct": 0.367, "ts_pct": 0.477, "per": 11.1, "ws": -1.1, "bpm": 0, "vorp": 0, "cap_hit": 131776.0, "cap_pct": 8.7437, "contract": "Veteran", "mp": 1103.0, "tier": "T3", "ws48": -0.0399, "piv": 28.6, "action": "Hold"}, {"player": "Marine Johannes", "team": "NYL", "pos": "G", "age": 0, "g": 44.0, "pts": 6.4, "ast": 1.6, "trb": 1.9, "stl": 0.6, "blk": 0.3, "fg_pct": 0.397, "ts_pct": 0.54, "per": 10.6, "ws": 0.8, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 803.0, "tier": "T4", "ws48": 0.0399, "piv": 50.4, "action": "Extend"}, {"player": "Mari\u00e8me Badiane", "team": "MIN", "pos": "C", "age": 0, "g": 3.0, "pts": 0.0, "ast": 0.0, "trb": 0.3, "stl": 0.7, "blk": 0.0, "fg_pct": 0.0, "ts_pct": 0.0, "per": -18.2, "ws": -0.1, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 11.0, "tier": "T4", "ws48": -0.3636, "piv": -11.4, "action": "Hold"}, {"player": "Maya Caldwell", "team": "ATL", "pos": "G", "age": 0, "g": 41.0, "pts": 5.4, "ast": 1.8, "trb": 3.1, "stl": 0.9, "blk": 0.2, "fg_pct": 0.426, "ts_pct": 0.542, "per": 12.7, "ws": 2.4, "bpm": 0, "vorp": 0, "cap_hit": 36841.0, "cap_pct": 2.4445, "contract": "Veteran", "mp": 760.0, "tier": "T2", "ws48": 0.1263, "piv": 59.5, "action": "Extend"}, {"player": "Megan Gustafson", "team": "LVA", "pos": "C", "age": 0, "g": 20.0, "pts": 3.0, "ast": 0.3, "trb": 1.8, "stl": 0.2, "blk": 0.3, "fg_pct": 0.351, "ts_pct": 0.472, "per": 5.6, "ws": 0.2, "bpm": 0, "vorp": 0, "cap_hit": 94000.0, "cap_pct": 6.2371, "contract": "Veteran", "mp": 226.0, "tier": "T4", "ws48": 0.0354, "piv": 20.6, "action": "Hold"}, {"player": "Megan McConnell", "team": "PHO", "pos": "G", "age": 0, "g": 1.0, "pts": 3.0, "ast": 3.0, "trb": 1.0, "stl": 1.0, "blk": 0.0, "fg_pct": 0.25, "ts_pct": 0.375, "per": 15.4, "ws": 0.1, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 13.0, "tier": "T2", "ws48": 0.3077, "piv": 43.8, "action": "Hold"}, {"player": "Mercedes Russell", "team": "LAS", "pos": "C", "age": 0, "g": 20.0, "pts": 1.7, "ast": 0.6, "trb": 1.2, "stl": 0.3, "blk": 0.2, "fg_pct": 0.444, "ts_pct": 0.513, "per": 9.6, "ws": 0.2, "bpm": 0, "vorp": 0, "cap_hit": 160000.0, "cap_pct": 10.6164, "contract": "Veteran", "mp": 163.0, "tier": "T4", "ws48": 0.0491, "piv": 28.2, "action": "Trade"}, {"player": "Michaela Onyenwere", "team": "CHI", "pos": "F", "age": 0, "g": 42.0, "pts": 5.8, "ast": 1.1, "trb": 1.6, "stl": 0.4, "blk": 0.1, "fg_pct": 0.422, "ts_pct": 0.525, "per": 7.8, "ws": -0.5, "bpm": 0, "vorp": 0, "cap_hit": 85690.0, "cap_pct": 5.6858, "contract": "Veteran", "mp": 711.0, "tier": "T4", "ws48": -0.0281, "piv": 31.5, "action": "Hold"}, {"player": "Monique Akoa Makani", "team": "PHO", "pos": "G", "age": 0, "g": 41.0, "pts": 7.7, "ast": 2.7, "trb": 2.2, "stl": 0.8, "blk": 0.1, "fg_pct": 0.43, "ts_pct": 0.556, "per": 12.2, "ws": 2.2, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 881.0, "tier": "T3", "ws48": 0.0999, "piv": 55.2, "action": "Extend"}, {"player": "Monique Billings", "team": "GSV", "pos": "F", "age": 0, "g": 26.0, "pts": 7.3, "ast": 0.5, "trb": 4.5, "stl": 0.6, "blk": 0.8, "fg_pct": 0.477, "ts_pct": 0.545, "per": 16.9, "ws": 1.7, "bpm": 0, "vorp": 0, "cap_hit": 46996.0, "cap_pct": 3.1183, "contract": "Veteran", "mp": 474.0, "tier": "T2", "ws48": 0.1435, "piv": 52.5, "action": "Extend"}, {"player": "Moriah Jefferson", "team": "CHI", "pos": "G", "age": 0, "g": 5.0, "pts": 1.4, "ast": 1.8, "trb": 1.0, "stl": 0.0, "blk": 0.0, "fg_pct": 0.375, "ts_pct": 0.438, "per": 9.6, "ws": 0.0, "bpm": 0, "vorp": 0, "cap_hit": 89664.0, "cap_pct": 5.9494, "contract": "Veteran", "mp": 35.0, "tier": "T4", "ws48": 0.0, "piv": 18.4, "action": "Hold"}, {"player": "Murjanatu Musa", "team": "PHO", "pos": "C", "age": 0, "g": 12.0, "pts": 3.3, "ast": 0.6, "trb": 2.6, "stl": 0.3, "blk": 0.2, "fg_pct": 0.457, "ts_pct": 0.502, "per": 13.6, "ws": 0.3, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 122.0, "tier": "T3", "ws48": 0.0984, "piv": 46.9, "action": "Hold"}, {"player": "Myisha Hines-Allen", "team": "DAL", "pos": "F", "age": 0, "g": 40.0, "pts": 7.6, "ast": 2.9, "trb": 6.0, "stl": 0.8, "blk": 0.5, "fg_pct": 0.45, "ts_pct": 0.529, "per": 13.8, "ws": 0.8, "bpm": 0, "vorp": 0, "cap_hit": 126680.0, "cap_pct": 8.4055, "contract": "Veteran", "mp": 882.0, "tier": "T3", "ws48": 0.0363, "piv": 38.0, "action": "Hold"}, {"player": "Napheesa Collier", "team": "MIN", "pos": "F", "age": 0, "g": 33.0, "pts": 22.9, "ast": 3.2, "trb": 7.3, "stl": 1.6, "blk": 1.5, "fg_pct": 0.531, "ts_pct": 0.636, "per": 30.2, "ws": 8.3, "bpm": 0, "vorp": 0, "cap_hit": 208219.0, "cap_pct": 13.8159, "contract": "Veteran", "mp": 1065.0, "tier": "T1", "ws48": 0.3117, "piv": 79.5, "action": "Hold"}, {"player": "Natasha Cloud", "team": "NYL", "pos": "G", "age": 0, "g": 41.0, "pts": 10.1, "ast": 5.1, "trb": 3.7, "stl": 1.2, "blk": 0.3, "fg_pct": 0.433, "ts_pct": 0.546, "per": 14.2, "ws": 3.5, "bpm": 0, "vorp": 0, "cap_hit": 200000.0, "cap_pct": 13.2705, "contract": "Veteran", "mp": 1191.0, "tier": "T3", "ws48": 0.1175, "piv": 46.3, "action": "Hold"}, {"player": "Natasha Howard", "team": "IND", "pos": "F", "age": 0, "g": 44.0, "pts": 11.4, "ast": 1.5, "trb": 6.6, "stl": 1.2, "blk": 0.6, "fg_pct": 0.552, "ts_pct": 0.595, "per": 19.3, "ws": 4.2, "bpm": 0, "vorp": 0, "cap_hit": 234350.0, "cap_pct": 15.5497, "contract": "Veteran", "mp": 1060.0, "tier": "T2", "ws48": 0.1585, "piv": 57.9, "action": "Hold"}, {"player": "Natasha Mack", "team": "PHO", "pos": "F-C", "age": 0, "g": 34.0, "pts": 4.7, "ast": 0.9, "trb": 5.8, "stl": 0.9, "blk": 1.5, "fg_pct": 0.573, "ts_pct": 0.569, "per": 19.5, "ws": 3.2, "bpm": 0, "vorp": 0, "cap_hit": 64154.0, "cap_pct": 4.2568, "contract": "Veteran", "mp": 623.0, "tier": "T2", "ws48": 0.2055, "piv": 66.0, "action": "Extend"}, {"player": "Natisha Hiedeman", "team": "MIN", "pos": "G", "age": 0, "g": 44.0, "pts": 9.1, "ast": 2.8, "trb": 1.9, "stl": 0.7, "blk": 0.2, "fg_pct": 0.492, "ts_pct": 0.593, "per": 17.9, "ws": 3.5, "bpm": 0, "vorp": 0, "cap_hit": 120000.0, "cap_pct": 7.9623, "contract": "Veteran", "mp": 833.0, "tier": "T2", "ws48": 0.1681, "piv": 59.5, "action": "Extend"}, {"player": "Naz Hillmon", "team": "ATL", "pos": "F", "age": 0, "g": 44.0, "pts": 8.6, "ast": 2.4, "trb": 6.2, "stl": 0.5, "blk": 0.4, "fg_pct": 0.463, "ts_pct": 0.583, "per": 15.8, "ws": 4.8, "bpm": 0, "vorp": 0, "cap_hit": 71124.0, "cap_pct": 4.7193, "contract": "Rookie", "mp": 1122.0, "tier": "T2", "ws48": 0.1711, "piv": 68.1, "action": "Extend"}, {"player": "Nia Coffey", "team": "ATL", "pos": "F", "age": 0, "g": 44.0, "pts": 3.9, "ast": 1.0, "trb": 2.6, "stl": 0.2, "blk": 0.4, "fg_pct": 0.374, "ts_pct": 0.503, "per": 14.1, "ws": 1.4, "bpm": 0, "vorp": 0, "cap_hit": 150000.0, "cap_pct": 9.9529, "contract": "Veteran", "mp": 455.0, "tier": "T2", "ws48": 0.1231, "piv": 41.0, "action": "Hold"}, {"player": "Nneka Ogwumike", "team": "SEA", "pos": "F", "age": 0, "g": 44.0, "pts": 18.3, "ast": 2.3, "trb": 7.0, "stl": 1.1, "blk": 0.4, "fg_pct": 0.519, "ts_pct": 0.6, "per": 21.8, "ws": 5.7, "bpm": 0, "vorp": 0, "cap_hit": 204500.0, "cap_pct": 13.5691, "contract": "Veteran", "mp": 1359.0, "tier": "T2", "ws48": 0.1678, "piv": 63.0, "action": "Hold"}, {"player": "Nyara Sabally", "team": "NYL", "pos": "C", "age": 0, "g": 17.0, "pts": 5.4, "ast": 0.8, "trb": 4.5, "stl": 0.5, "blk": 1.0, "fg_pct": 0.487, "ts_pct": 0.529, "per": 13.5, "ws": 0.8, "bpm": 0, "vorp": 0, "cap_hit": 72727.0, "cap_pct": 4.8256, "contract": "Rookie", "mp": 305.0, "tier": "T3", "ws48": 0.1049, "piv": 37.7, "action": "Hold"}, {"player": "Olivia Nelson-Ododa", "team": "CON", "pos": "C", "age": 0, "g": 37.0, "pts": 8.2, "ast": 0.9, "trb": 5.0, "stl": 0.7, "blk": 1.2, "fg_pct": 0.526, "ts_pct": 0.578, "per": 17.2, "ws": 2.1, "bpm": 0, "vorp": 0, "cap_hit": 71124.0, "cap_pct": 4.7193, "contract": "Rookie", "mp": 800.0, "tier": "T2", "ws48": 0.105, "piv": 54.3, "action": "Extend"}, {"player": "Paige Bueckers", "team": "DAL", "pos": "G", "age": 0, "g": 36.0, "pts": 19.2, "ast": 5.4, "trb": 3.9, "stl": 1.6, "blk": 0.5, "fg_pct": 0.477, "ts_pct": 0.567, "per": 22.1, "ws": 4.4, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 1199.0, "tier": "T2", "ws48": 0.1468, "piv": 65.3, "action": "Extend"}, {"player": "Rachel Banham", "team": "CHI", "pos": "G", "age": 0, "g": 44.0, "pts": 9.0, "ast": 2.7, "trb": 1.7, "stl": 0.6, "blk": 0.3, "fg_pct": 0.382, "ts_pct": 0.544, "per": 10.6, "ws": 0.5, "bpm": 0, "vorp": 0, "cap_hit": 60224.0, "cap_pct": 3.996, "contract": "Veteran", "mp": 1081.0, "tier": "T4", "ws48": 0.0185, "piv": 35.9, "action": "Hold"}, {"player": "Rae Burrell", "team": "LAS", "pos": "G-F", "age": 0, "g": 28.0, "pts": 7.5, "ast": 1.2, "trb": 2.3, "stl": 0.6, "blk": 0.2, "fg_pct": 0.433, "ts_pct": 0.531, "per": 13.0, "ws": 0.6, "bpm": 0, "vorp": 0, "cap_hit": 125000.0, "cap_pct": 8.2941, "contract": "Rookie", "mp": 515.0, "tier": "T3", "ws48": 0.0466, "piv": 34.5, "action": "Hold"}, {"player": "Rayah Marshall", "team": "CON", "pos": "C-F", "age": 0, "g": 15.0, "pts": 1.7, "ast": 0.3, "trb": 1.7, "stl": 0.1, "blk": 0.2, "fg_pct": 0.346, "ts_pct": 0.4, "per": 7.1, "ws": -0.2, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 90.0, "tier": "T4", "ws48": -0.0889, "piv": 16.0, "action": "Hold"}, {"player": "Rebecca Allen", "team": "CHI", "pos": "F-G", "age": 0, "g": 44.0, "pts": 5.1, "ast": 1.3, "trb": 2.6, "stl": 0.5, "blk": 0.5, "fg_pct": 0.342, "ts_pct": 0.444, "per": 7.9, "ws": -0.5, "bpm": 0, "vorp": 0, "cap_hit": 160000.0, "cap_pct": 10.6164, "contract": "Veteran", "mp": 821.0, "tier": "T4", "ws48": -0.0244, "piv": 25.8, "action": "Trade"}, {"player": "Rebekah Gardner", "team": "NYL", "pos": "G", "age": 0, "g": 41.0, "pts": 3.7, "ast": 0.6, "trb": 1.8, "stl": 0.6, "blk": 0.2, "fg_pct": 0.5, "ts_pct": 0.624, "per": 12.5, "ws": 1.6, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 502.0, "tier": "T2", "ws48": 0.1275, "piv": 62.0, "action": "Extend"}, {"player": "Rhyne Howard", "team": "ATL", "pos": "G", "age": 0, "g": 33.0, "pts": 17.5, "ast": 4.6, "trb": 4.5, "stl": 1.5, "blk": 0.8, "fg_pct": 0.375, "ts_pct": 0.524, "per": 18.2, "ws": 5.1, "bpm": 0, "vorp": 0, "cap_hit": 80943.0, "cap_pct": 5.3708, "contract": "Rookie", "mp": 1151.0, "tier": "T2", "ws48": 0.1772, "piv": 61.6, "action": "Extend"}, {"player": "Rickea Jackson", "team": "LAS", "pos": "F", "age": 0, "g": 38.0, "pts": 14.7, "ast": 1.7, "trb": 3.2, "stl": 0.6, "blk": 0.4, "fg_pct": 0.424, "ts_pct": 0.53, "per": 12.3, "ws": 0.3, "bpm": 0, "vorp": 0, "cap_hit": 76535.0, "cap_pct": 5.0783, "contract": "Rookie", "mp": 1173.0, "tier": "T3", "ws48": 0.0102, "piv": 34.1, "action": "Hold"}, {"player": "Robyn Parks", "team": "CON", "pos": "F", "age": 0, "g": 6.0, "pts": 0.3, "ast": 0.3, "trb": 1.5, "stl": 0.3, "blk": 0.0, "fg_pct": 0.2, "ts_pct": 0.2, "per": 1.1, "ws": -0.1, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 63.0, "tier": "T4", "ws48": -0.0635, "piv": 4.2, "action": "Hold"}, {"player": "Sabrina Ionescu", "team": "NYL", "pos": "G", "age": 0, "g": 38.0, "pts": 18.2, "ast": 5.7, "trb": 4.9, "stl": 1.3, "blk": 0.4, "fg_pct": 0.401, "ts_pct": 0.537, "per": 20.4, "ws": 4.3, "bpm": 0, "vorp": 0, "cap_hit": 202000.0, "cap_pct": 13.4032, "contract": "Veteran", "mp": 1194.0, "tier": "T2", "ws48": 0.1441, "piv": 51.6, "action": "Hold"}, {"player": "Sami Whitcomb", "team": "PHO", "pos": "G", "age": 0, "g": 43.0, "pts": 9.1, "ast": 2.5, "trb": 2.6, "stl": 0.8, "blk": 0.2, "fg_pct": 0.385, "ts_pct": 0.544, "per": 11.4, "ws": 1.9, "bpm": 0, "vorp": 0, "cap_hit": 140000.0, "cap_pct": 9.2894, "contract": "Veteran", "mp": 1027.0, "tier": "T3", "ws48": 0.074, "piv": 40.4, "action": "Hold"}, {"player": "Sania Feagin", "team": "LAS", "pos": "F", "age": 0, "g": 16.0, "pts": 1.3, "ast": 0.3, "trb": 0.7, "stl": 0.0, "blk": 0.4, "fg_pct": 0.357, "ts_pct": 0.346, "per": 0.2, "ws": -0.3, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 77.0, "tier": "T4", "ws48": -0.1558, "piv": 7.8, "action": "Hold"}, {"player": "Saniya Rivers", "team": "CON", "pos": "G", "age": 0, "g": 42.0, "pts": 8.8, "ast": 2.7, "trb": 2.8, "stl": 1.5, "blk": 0.9, "fg_pct": 0.407, "ts_pct": 0.495, "per": 13.6, "ws": 0.7, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 1097.0, "tier": "T3", "ws48": 0.0255, "piv": 49.1, "action": "Hold"}, {"player": "Sarah Ashlee Barker", "team": "LAS", "pos": "G", "age": 0, "g": 34.0, "pts": 3.1, "ast": 0.9, "trb": 1.9, "stl": 0.3, "blk": 0.1, "fg_pct": 0.337, "ts_pct": 0.458, "per": 4.1, "ws": -0.8, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 481.0, "tier": "T4", "ws48": -0.0665, "piv": 21.3, "action": "Hold"}, {"player": "Satou Sabally", "team": "PHO", "pos": "F", "age": 0, "g": 39.0, "pts": 16.3, "ast": 2.5, "trb": 5.9, "stl": 1.3, "blk": 0.3, "fg_pct": 0.404, "ts_pct": 0.533, "per": 19.5, "ws": 3.8, "bpm": 0, "vorp": 0, "cap_hit": 195000.0, "cap_pct": 12.9388, "contract": "Veteran", "mp": 1039.0, "tier": "T2", "ws48": 0.1463, "piv": 50.5, "action": "Hold"}, {"player": "Serena Sundell", "team": "DAL", "pos": "G", "age": 0, "g": 3.0, "pts": 0.0, "ast": 0.0, "trb": 0.3, "stl": 0.0, "blk": 0.0, "fg_pct": 0.0, "ts_pct": 0.0, "per": -9.6, "ws": -0.1, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 22.0, "tier": "T4", "ws48": -0.1818, "piv": -4.7, "action": "Hold"}, {"player": "Shakira Austin", "team": "WAS", "pos": "F-C", "age": 0, "g": 38.0, "pts": 12.7, "ast": 1.8, "trb": 6.4, "stl": 1.1, "blk": 1.1, "fg_pct": 0.465, "ts_pct": 0.506, "per": 18.4, "ws": 1.1, "bpm": 0, "vorp": 0, "cap_hit": 80943.0, "cap_pct": 5.3708, "contract": "Rookie", "mp": 874.0, "tier": "T2", "ws48": 0.0503, "piv": 42.8, "action": "Hold"}, {"player": "Shatori Walker-Kimbrough", "team": "ATL", "pos": "G", "age": 0, "g": 41.0, "pts": 1.7, "ast": 0.5, "trb": 0.9, "stl": 0.2, "blk": 0.3, "fg_pct": 0.413, "ts_pct": 0.523, "per": 7.8, "ws": 0.6, "bpm": 0, "vorp": 0, "cap_hit": 97850.0, "cap_pct": 6.4926, "contract": "Veteran", "mp": 354.0, "tier": "T3", "ws48": 0.0678, "piv": 33.9, "action": "Hold"}, {"player": "Skylar Diggins", "team": "SEA", "pos": "G", "age": 0, "g": 43.0, "pts": 15.5, "ast": 6.0, "trb": 2.5, "stl": 1.2, "blk": 0.8, "fg_pct": 0.423, "ts_pct": 0.536, "per": 18.8, "ws": 4.6, "bpm": 0, "vorp": 0, "cap_hit": 208219.0, "cap_pct": 13.8159, "contract": "Veteran", "mp": 1343.0, "tier": "T2", "ws48": 0.137, "piv": 51.8, "action": "Hold"}, {"player": "Sonia Citron", "team": "WAS", "pos": "G", "age": 0, "g": 44.0, "pts": 14.9, "ast": 2.4, "trb": 4.0, "stl": 1.3, "blk": 0.4, "fg_pct": 0.47, "ts_pct": 0.609, "per": 16.4, "ws": 4.2, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 1415.0, "tier": "T2", "ws48": 0.1187, "piv": 63.9, "action": "Extend"}, {"player": "Sophie Cunningham", "team": "IND", "pos": "G", "age": 0, "g": 30.0, "pts": 8.6, "ast": 1.2, "trb": 3.5, "stl": 1.0, "blk": 0.1, "fg_pct": 0.469, "ts_pct": 0.655, "per": 12.8, "ws": 2.5, "bpm": 0, "vorp": 0, "cap_hit": 189500.0, "cap_pct": 12.5738, "contract": "Veteran", "mp": 756.0, "tier": "T2", "ws48": 0.1323, "piv": 49.2, "action": "Hold"}, {"player": "Stefanie Dolson", "team": "WAS", "pos": "C", "age": 0, "g": 43.0, "pts": 3.7, "ast": 1.4, "trb": 2.3, "stl": 0.3, "blk": 0.3, "fg_pct": 0.423, "ts_pct": 0.534, "per": 8.5, "ws": 1.0, "bpm": 0, "vorp": 0, "cap_hit": 185000.0, "cap_pct": 12.2752, "contract": "Veteran", "mp": 653.0, "tier": "T3", "ws48": 0.0613, "piv": 35.2, "action": "Hold"}, {"player": "Sug Sutton", "team": "WAS", "pos": "G", "age": 0, "g": 43.0, "pts": 7.4, "ast": 3.9, "trb": 1.8, "stl": 0.8, "blk": 0.1, "fg_pct": 0.422, "ts_pct": 0.523, "per": 9.8, "ws": 0.7, "bpm": 0, "vorp": 0, "cap_hit": 45739.0, "cap_pct": 3.0349, "contract": "Veteran", "mp": 1122.0, "tier": "T4", "ws48": 0.025, "piv": 36.9, "action": "Hold"}, {"player": "Sydney Colson", "team": "IND", "pos": "G", "age": 0, "g": 30.0, "pts": 2.4, "ast": 2.0, "trb": 0.8, "stl": 0.5, "blk": 0.2, "fg_pct": 0.342, "ts_pct": 0.449, "per": 5.8, "ws": 0.0, "bpm": 0, "vorp": 0, "cap_hit": 76535.0, "cap_pct": 5.0783, "contract": "Veteran", "mp": 404.0, "tier": "T4", "ws48": 0.0, "piv": 21.3, "action": "Hold"}, {"player": "Taylor Thierry", "team": "ATL", "pos": "G-F", "age": 0, "g": 17.0, "pts": 0.4, "ast": 0.1, "trb": 0.4, "stl": 0.2, "blk": 0.0, "fg_pct": 0.182, "ts_pct": 0.235, "per": 5.5, "ws": 0.0, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 36.0, "tier": "T4", "ws48": 0.0, "piv": 10.1, "action": "Hold"}, {"player": "Te-Hina PaoPao", "team": "ATL", "pos": "G", "age": 0, "g": 43.0, "pts": 5.8, "ast": 2.4, "trb": 1.6, "stl": 0.5, "blk": 0.2, "fg_pct": 0.44, "ts_pct": 0.559, "per": 13.1, "ws": 2.1, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 720.0, "tier": "T3", "ws48": 0.1167, "piv": 57.5, "action": "Extend"}, {"player": "Teaira McCowan", "team": "DAL", "pos": "C", "age": 0, "g": 17.0, "pts": 5.6, "ast": 0.6, "trb": 4.6, "stl": 0.3, "blk": 0.7, "fg_pct": 0.537, "ts_pct": 0.596, "per": 20.3, "ws": 0.7, "bpm": 0, "vorp": 0, "cap_hit": 195700.0, "cap_pct": 12.9852, "contract": "Veteran", "mp": 219.0, "tier": "T2", "ws48": 0.1279, "piv": 46.7, "action": "Hold"}, {"player": "Temi Fagbenle", "team": "GSV", "pos": "C", "age": 0, "g": 39.0, "pts": 7.4, "ast": 1.6, "trb": 4.9, "stl": 0.9, "blk": 0.6, "fg_pct": 0.502, "ts_pct": 0.544, "per": 12.9, "ws": 2.4, "bpm": 0, "vorp": 0, "cap_hit": 76535.0, "cap_pct": 5.0783, "contract": "Veteran", "mp": 925.0, "tier": "T3", "ws48": 0.1038, "piv": 49.5, "action": "Hold"}, {"player": "Tiffany Hayes", "team": "GSV", "pos": "G", "age": 0, "g": 26.0, "pts": 11.7, "ast": 3.0, "trb": 3.8, "stl": 0.5, "blk": 0.2, "fg_pct": 0.418, "ts_pct": 0.557, "per": 14.1, "ws": 1.9, "bpm": 0, "vorp": 0, "cap_hit": 88000.0, "cap_pct": 5.839, "contract": "Veteran", "mp": 700.0, "tier": "T3", "ws48": 0.1086, "piv": 44.0, "action": "Hold"}, {"player": "Tina Charles", "team": "CON", "pos": "C", "age": 0, "g": 43.0, "pts": 16.3, "ast": 1.7, "trb": 5.8, "stl": 0.8, "blk": 0.4, "fg_pct": 0.438, "ts_pct": 0.515, "per": 17.7, "ws": 1.5, "bpm": 0, "vorp": 0, "cap_hit": 130000.0, "cap_pct": 8.6258, "contract": "Veteran", "mp": 1222.0, "tier": "T2", "ws48": 0.0491, "piv": 42.8, "action": "Hold"}, {"player": "Tyasha Harris", "team": "DAL", "pos": "G", "age": 0, "g": 5.0, "pts": 4.6, "ast": 2.6, "trb": 1.0, "stl": 0.4, "blk": 0.4, "fg_pct": 0.444, "ts_pct": 0.609, "per": 13.7, "ws": 0.2, "bpm": 0, "vorp": 0, "cap_hit": 97100.0, "cap_pct": 6.4428, "contract": "Veteran", "mp": 82.0, "tier": "T3", "ws48": 0.0976, "piv": 36.1, "action": "Hold"}, {"player": "Veronica Burton", "team": "GSV", "pos": "G", "age": 0, "g": 44.0, "pts": 11.9, "ast": 6.0, "trb": 4.4, "stl": 1.1, "blk": 0.6, "fg_pct": 0.387, "ts_pct": 0.561, "per": 19.3, "ws": 6.4, "bpm": 0, "vorp": 0, "cap_hit": 50180.0, "cap_pct": 3.3296, "contract": "Rookie", "mp": 1292.0, "tier": "T2", "ws48": 0.1981, "piv": 69.3, "action": "Extend"}, {"player": "Yvonne Anderson", "team": "MIN", "pos": "G", "age": 0, "g": 1.0, "pts": 0.0, "ast": 2.0, "trb": 1.0, "stl": 2.0, "blk": 0.0, "fg_pct": 0.0, "ts_pct": 0.0, "per": 1.2, "ws": 0.0, "bpm": 0, "vorp": 0, "cap_hit": 0, "cap_pct": 0, "contract": "Veteran", "mp": 12.0, "tier": "T4", "ws48": 0.0, "piv": 3.2, "action": "Hold"}, {"player": "Zia Cooke", "team": "SEA", "pos": "G", "age": 0, "g": 26.0, "pts": 3.5, "ast": 0.5, "trb": 0.5, "stl": 0.4, "blk": 0.0, "fg_pct": 0.357, "ts_pct": 0.478, "per": 5.6, "ws": -0.3, "bpm": 0, "vorp": 0, "cap_hit": 69663.0, "cap_pct": 4.6223, "contract": "Rookie", "mp": 261.0, "tier": "T4", "ws48": -0.046, "piv": 22.2, "action": "Hold"}];
+const TC  = {T1:'#c026d3',T2:'#7c3aed',T3:'#0891b2',T4:'#64748b'};
+const TN  = {T1:'Franchise Cornerstone',T2:'Quality Starter',T3:'Rotation Player',T4:'Developmental'};
+const TIERS = ['T1','T2','T3','T4'];
+const MAX_CAP = 22;
+
+let capFiltered=[]; let capSort='piv'; let capDir=-1;
+let devAge=''; let charts={}; let devData=[];
+
+function init(){
+  document.getElementById('navT1').textContent = DATA.filter(x=>x.tier==='T1').length;
+  document.getElementById('navTeams').textContent = [...new Set(DATA.map(x=>x.team))].length;
+  capPopulateFilters(); capApply(); devApply();
+  populateRosterTeams(); renderRoster(); renderTierFramework();
+}
+
+function showPage(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── CAP OVERVIEW ─────────────────────────────────────────────────
+const CAP_COLS=[
+  {key:'player',  label:'Player',    fmt:p=>`<span class="player-name-cell">${p}</span>`},
+  {key:'team',    label:'Team',      fmt:t=>`<span class="chip">${t}</span>`},
+  {key:'pos',     label:'Pos',       fmt:p=>`<span class="chip pos-chip">${p}</span>`},
+  {key:'piv',     label:'PIV',       fmt:v=>`<div class="piv-circle piv-sm">${v}</div>`},
+  {key:'tier',    label:'Tier',      fmt:t=>`<span class="tier-badge ${t}">${t}</span>`},
+  {key:'cap_pct', label:'Cap Hit %', fmt:(v)=>capBarCell(v)},
+  {key:'cap_hit', label:'Cap ($K)',  fmt:v=>v>0?`<span class="mono">$${Math.round(v/1000)}K</span>`:'<span class="mono val-muted">—</span>'},
+  {key:'pts',     label:'PTS',       fmt:v=>`<span class="mono">${v.toFixed(1)}</span>`},
+  {key:'ast',     label:'AST',       fmt:v=>`<span class="mono">${v.toFixed(1)}</span>`},
+  {key:'trb',     label:'REB',       fmt:v=>`<span class="mono">${v.toFixed(1)}</span>`},
+  {key:'ts_pct',  label:'TS%',       fmt:v=>`<span class="mono">${(v*100).toFixed(1)}%</span>`},
+  {key:'per',     label:'PER',       fmt:v=>`<span class="mono ${v>=25?'val-green':v<10?'val-red':''}">${v.toFixed(1)}</span>`},
+  {key:'ws',      label:'WS',        fmt:v=>`<span class="mono">${v.toFixed(1)}</span>`},
+  {key:'contract',label:'Contract',  fmt:c=>`<span style="font-size:.7rem;color:var(--muted)">${c||'—'}</span>`},
+  {key:'action',  label:'Action',    fmt:a=>`<span class="action-btn action-${a}">${a}</span>`},
+];
+
+function capBarCell(v){
+  const pct=Math.min((v/MAX_CAP)*100,100);
+  const cls=v>=12?'#dc2626':v>0&&v<3?'#16a34a':'#c026d3';
+  return `<div class="cap-cell">
+    <div class="cap-bar-bg"><div class="cap-bar-fill" style="width:${pct}%;background:${cls}"></div></div>
+    <span class="mono" style="color:${cls};min-width:42px">${v>0?v.toFixed(2)+'%':'—'}</span>
+  </div>`;
+}
+
+function capPopulateFilters(){
+  const teams=[...new Set(DATA.map(x=>x.team))].sort();
+  const pos=[...new Set(DATA.map(x=>x.pos))].sort();
+  document.getElementById('capTeam').innerHTML='<option value="">All Teams</option>'+teams.map(t=>`<option>${t}</option>`).join('');
+  document.getElementById('capPos').innerHTML='<option value="">All Positions</option>'+pos.map(p=>`<option>${p}</option>`).join('');
+}
+
+function capApply(){
+  const search=document.getElementById('capSearch').value.toLowerCase();
+  const team=document.getElementById('capTeam').value;
+  const pos=document.getElementById('capPos').value;
+  const tier=document.getElementById('capTier').value;
+  const contract=document.getElementById('capContract').value;
+  capFiltered=DATA.filter(x=>
+    (!search||x.player.toLowerCase().includes(search))&&
+    (!team||x.team===team)&&(!pos||x.pos===pos)&&
+    (!tier||x.tier===tier)&&(!contract||x.contract===contract)
+  );
+  renderCapKPIs(); renderCapCharts(); renderCapTable();
+}
+
+function renderCapKPIs(){
+  const d=capFiltered; if(!d.length) return;
+  const wc=d.filter(x=>x.cap_pct>0);
+  const avgCap=wc.length?(wc.reduce((s,x)=>s+x.cap_pct,0)/wc.length).toFixed(2):'—';
+  const stars=d.filter(x=>x.tier==='T1');
+  const starCap=stars.filter(x=>x.cap_pct>0);
+  const avgStar=starCap.length?(starCap.reduce((s,x)=>s+x.cap_pct,0)/starCap.length).toFixed(1):'—';
+  const valued=wc.filter(x=>x.per>0).sort((a,b)=>(b.piv/b.cap_pct)-(a.piv/a.cap_pct));
+  const best=valued[0];
+  const over=wc.filter(x=>x.per>0).sort((a,b)=>(b.cap_pct/b.piv)-(a.cap_pct/a.piv))[0];
+  document.getElementById('capKPIs').innerHTML=[
+    {label:'Players',      val:d.length,           sub:`${wc.length} with salary data`, cls:''},
+    {label:'Avg Cap Hit %',val:avgCap+'%',          sub:'across filtered roster',       cls:'blue'},
+    {label:'T1 Avg Cap %', val:avgStar+'%',         sub:`${stars.length} T1 players`,  cls:''},
+    {label:'Best Value',   val:best?best.player.split(' ').pop():'—', sub:best?`PIV ${best.piv} / ${best.cap_pct.toFixed(1)}% cap`:'', cls:'green'},
+    {label:'Most Overpaid',val:over?over.player.split(' ').pop():'—', sub:over?`${over.cap_pct.toFixed(1)}% cap / PIV ${over.piv}`:'', cls:'red'},
+  ].map(k=>`<div class="kpi ${k.cls}"><div class="kpi-label">${k.label}</div><div class="kpi-val">${k.val}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
+}
+
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+
+function renderCapCharts(){
+  const d=capFiltered;
+  const gridC='#e8d8f5'; const tickC='#9b80b8';
+
+  destroyChart('teamEff');
+  const teamMap={};
+  d.forEach(p=>{
+    if(!teamMap[p.team]) teamMap[p.team]={ws:0,cap:0,count:0};
+    teamMap[p.team].ws+=p.ws; teamMap[p.team].cap+=p.cap_hit/1000; teamMap[p.team].count++;
+  });
+  const teams=Object.entries(teamMap).filter(([,v])=>v.cap>50)
+    .map(([t,v])=>({t,eff:+(v.ws/v.cap*1000).toFixed(2),cap:+v.cap.toFixed(0),count:v.count}))
+    .sort((a,b)=>b.eff-a.eff);
+  charts['teamEff']=new Chart(document.getElementById('teamEffChart'),{
+    type:'bubble',
+    data:{datasets:[{data:teams.map(x=>({x:x.cap,y:x.eff,r:Math.max(x.count*1.5,5),label:x.t})),
+      backgroundColor:'rgba(192,38,211,.4)',borderColor:'rgba(192,38,211,.8)',borderWidth:1}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw.label}: ${c.raw.y} WS/$K · $${c.raw.x}K total`}}},
+      scales:{
+        x:{title:{display:true,text:'Total Cap ($K)',color:tickC,font:{size:10}},ticks:{color:tickC},grid:{color:gridC}},
+        y:{title:{display:true,text:'WS per $K',color:tickC,font:{size:10}},ticks:{color:tickC},grid:{color:gridC}}
+      }}
+  });
+
+  destroyChart('capTier');
+  const tierAvgs=TIERS.map(t=>{
+    const ps=d.filter(x=>x.tier===t&&x.cap_pct>0);
+    return ps.length?+(ps.reduce((s,x)=>s+x.cap_pct,0)/ps.length).toFixed(2):0;
+  });
+  charts['capTier']=new Chart(document.getElementById('capTierChart'),{
+    type:'bar',
+    data:{labels:TIERS,datasets:[{data:tierAvgs,backgroundColor:TIERS.map(t=>TC[t]+'88'),borderColor:TIERS.map(t=>TC[t]),borderWidth:1,borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.raw}% avg cap hit`}}},
+      scales:{x:{ticks:{color:tickC},grid:{color:gridC}},y:{ticks:{color:tickC,callback:v=>v+'%'},grid:{color:gridC}}}}
+  });
+
+  destroyChart('tierDonut');
+  const tc=TIERS.map(t=>d.filter(x=>x.tier===t).length);
+  charts['tierDonut']=new Chart(document.getElementById('tierDonut'),{
+    type:'doughnut',
+    data:{labels:TIERS,datasets:[{data:tc,backgroundColor:TIERS.map(t=>TC[t]+'77'),borderColor:TIERS.map(t=>TC[t]),borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{color:tickC,font:{size:10},boxWidth:10,padding:6}}}}
+  });
+}
+
+function renderCapTable(){
+  const sorted=[...capFiltered].sort((a,b)=>{const av=a[capSort]??0,bv=b[capSort]??0;return capDir*(av>bv?1:av<bv?-1:0);});
+  document.getElementById('capCount').textContent=sorted.length+' players';
+  document.getElementById('capHead').innerHTML=CAP_COLS.map(c=>`<th onclick="capSortBy('${c.key}')" class="${capSort===c.key?(capDir>0?'sort-asc':'sort-desc'):''}">${c.label}</th>`).join('');
+  document.getElementById('capBody').innerHTML=sorted.map(p=>`
+    <tr onclick="openModal('${p.player.replace(/'/g,"\\'")}')">
+      ${CAP_COLS.map(c=>`<td>${c.fmt(p[c.key],p)}</td>`).join('')}
+    </tr>`).join('');
+}
+function capSortBy(col){if(capSort===col)capDir*=-1;else{capSort=col;capDir=-1;}renderCapTable();}
+
+// ── PLAYER DEVELOPMENT ────────────────────────────────────────────
+function setAge(btn){
+  document.querySelectorAll('.age-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); devAge=btn.dataset.age; devApply();
+}
+function devApply(){
+  const search=document.getElementById('devSearch').value.toLowerCase();
+  const tier=document.getElementById('devTier').value;
+  const sort=document.getElementById('devSort').value;
+  devData=DATA.filter(x=>
+    (!search||x.player.toLowerCase().includes(search))&&
+    (!tier||x.tier===tier)&&
+    (!devAge||(devAge==='rising'&&(x.age||26)<=23)||(devAge==='prime'&&(x.age||26)>=24&&(x.age||26)<=29)||(devAge==='veteran'&&(x.age||26)>=30))
+  ).sort((a,b)=>b[sort]-a[sort]);
+  document.getElementById('playerGrid').innerHTML=devData.slice(0,60).map(p=>`
+    <div class="player-card" onclick="openModal('${p.player.replace(/'/g,"\\'")}')">
+      <div class="pc-top">
+        <div>
+          <div class="pc-name">${p.player}</div>
+          <div class="pc-meta">${p.team} · ${p.pos}</div>
+          <span class="tier-badge ${p.tier}" style="margin-top:.35rem;display:inline-flex">${p.tier}</span>
+        </div>
+        <div class="piv-circle">${p.piv}</div>
+      </div>
+      <div class="pc-stats">
+        <div><div class="pc-stat-label">PTS</div><div class="pc-stat-val">${p.pts.toFixed(1)}</div></div>
+        <div><div class="pc-stat-label">AST</div><div class="pc-stat-val">${p.ast.toFixed(1)}</div></div>
+        <div><div class="pc-stat-label">REB</div><div class="pc-stat-val">${p.trb.toFixed(1)}</div></div>
+      </div>
+      <div class="pc-bottom">
+        <span style="color:var(--muted)">PER <b style="font-family:'JetBrains Mono',monospace;color:var(--text)">${p.per.toFixed(1)}</b>
+        · ${p.cap_hit>0?'$'+Math.round(p.cap_hit/1000)+'K':'$0'}</span>
+        <span class="action-btn action-${p.action}">${p.action}</span>
+      </div>
+    </div>`).join('');
+}
+
+// ── TEAM ROSTER ───────────────────────────────────────────────────
+function populateRosterTeams(){
+  const teams=[...new Set(DATA.map(x=>x.team))].sort();
+  const sel=document.getElementById('rosterTeam');
+  sel.innerHTML=teams.map(t=>`<option>${t}</option>`).join('');
+  sel.value=teams.includes('LVA')?'LVA':teams[0];
+}
+function renderRoster(){
+  const team=document.getElementById('rosterTeam').value;
+  const sort=document.getElementById('rosterSort').value;
+  const players=DATA.filter(x=>x.team===team).sort((a,b)=>b[sort]-a[sort]);
+  const wc=players.filter(x=>x.cap_hit>0);
+  const totalCap=wc.reduce((s,x)=>s+x.cap_hit,0);
+  const avgPIV=players.length?(players.reduce((s,x)=>s+x.piv,0)/players.length).toFixed(1):0;
+  const totalWS=players.reduce((s,x)=>s+x.ws,0).toFixed(1);
+  document.getElementById('teamKPIs').innerHTML=[
+    {label:'Players',   val:players.length},
+    {label:'Avg PIV',   val:avgPIV},
+    {label:'Total Cap', val:'$'+Math.round(totalCap/1000)+'K'},
+    {label:'Win Shares',val:totalWS},
+    {label:'T1 Players',val:players.filter(x=>x.tier==='T1').length},
+  ].map(k=>`<div class="team-kpi"><div class="team-kpi-label">${k.label}</div><div class="team-kpi-val">${k.val}</div></div>`).join('');
+
+  const tierCounts=TIERS.map(t=>players.filter(x=>x.tier===t).length);
+  const maxT=Math.max(...tierCounts,1);
+  document.getElementById('tierBreakdown').innerHTML=TIERS.map((t,i)=>`
+    <div class="tb-row">
+      <div class="tb-label"><span class="tier-badge ${t}">${t}</span> ${TN[t]}</div>
+      <div class="tb-bar-bg"><div class="tb-bar-fill" style="width:${(tierCounts[i]/maxT)*100}%;background:${TC[t]}"></div></div>
+      <div class="tb-count">${tierCounts[i]}</div>
+    </div>`).join('');
+
+  const t12=players.filter(x=>x.tier==='T1'||x.tier==='T2');
+  let cw=0;
+  if(t12.length){const base=Math.min((t12.reduce((s,x)=>s+x.piv,0)/t12.length/100)*130,100);cw=Math.round(Math.min(base,100));}
+  const cwColor=cw>=80?'#16a34a':cw>=55?'#d97706':'#dc2626';
+  document.getElementById('cwScore').textContent=cw;
+  document.getElementById('cwRing').style.borderColor=cwColor;
+  document.getElementById('cwScore').style.color=cwColor;
+
+  const positions=[...new Set(players.map(x=>x.pos))].sort();
+  document.getElementById('rosterByPos').innerHTML=positions.map(pos=>{
+    const pp=players.filter(x=>x.pos===pos);
+    return `<div class="pos-section">
+      <div class="pos-header"><span class="pos-tag">${pos}</span><span class="pos-count">${pp.length} player${pp.length>1?'s':''}</span></div>
+      ${pp.map(p=>`<div class="roster-row" onclick="openModal('${p.player.replace(/'/g,"\\'")}')">
+        <div class="piv-circle piv-sm">${p.piv}</div>
+        <span class="tier-badge ${p.tier}">${p.tier}</span>
+        <div class="rr-name">${p.player}</div>
+        <div class="rr-meta">${p.contract||'—'}</div>
+        <div class="rr-stats">
+          ${['pts','ast','trb','per'].map(k=>`<div class="rr-stat"><span class="rr-stat-label">${k.toUpperCase()}</span><span class="rr-stat-val">${typeof p[k]==='number'?p[k].toFixed(1):p[k]}</span></div>`).join('')}
+        </div>
+        <div class="rr-right">
+          <span class="mono" style="font-size:.72rem">${p.cap_pct>0?p.cap_pct.toFixed(2)+'%':'—'}</span>
+          <span class="action-btn action-${p.action}">${p.action}</span>
+        </div>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+// ── TIER FRAMEWORK ────────────────────────────────────────────────
+function renderTierFramework(){
+  TIERS.forEach(t=>{
+    const el=document.getElementById(t.toLowerCase()+'count');
+    if(el) el.textContent=DATA.filter(x=>x.tier===t).length+' players';
+  });
+  document.getElementById('tbtGrid').innerHTML=TIERS.map(t=>{
+    const top=DATA.filter(x=>x.tier===t).sort((a,b)=>b.piv-a.piv).slice(0,6);
+    return `<div class="tbt-col">
+      <div class="tbt-header"><span class="tier-badge ${t}">${t}</span><span style="font-size:.75rem;font-weight:600">${TN[t]}</span></div>
+      ${top.map(p=>`<div class="tbt-player" onclick="openModal('${p.player.replace(/'/g,"\\'")}')">
+        <div class="piv-circle piv-sm">${p.piv}</div>
+        <div class="tbt-player-info"><div class="tbt-player-name">${p.player}</div><div class="tbt-player-meta">${p.team} · ${p.pos}</div></div>
+        <span class="action-btn action-${p.action}">${p.action}</span>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────
+function openModal(playerName){
+  const p=DATA.find(x=>x.player===playerName); if(!p) return;
+  const barW=Math.min((p.cap_pct/MAX_CAP)*100,100);
+  const barColor=p.cap_pct>=12?'#dc2626':p.cap_pct>0&&p.cap_pct<3?'#16a34a':'#c026d3';
+  const vs=p.cap_pct>0?+(p.piv/p.cap_pct).toFixed(2):null;
+  const vsLabel=vs===null?'No salary data':vs>=5?'Great Value':vs>=2.5?'Fair Value':'Overpaid';
+  const vsColor=vs===null?'var(--muted)':vs>=5?'var(--green)':vs>=2.5?'var(--text)':'var(--red)';
+  document.getElementById('mName').textContent=p.player;
+  document.getElementById('mMeta').innerHTML=`
+    <span class="chip">${p.team}</span><span class="chip pos-chip">${p.pos}</span>
+    <span class="tier-badge ${p.tier}">${p.tier} · ${TN[p.tier]}</span>
+    <span class="chip">${p.contract||'—'}</span>
+    <span class="action-btn action-${p.action}">${p.action}</span>`;
+  document.getElementById('mBody').innerHTML=`
+    <div class="modal-kpi-row">
+      ${[['PTS',p.pts.toFixed(1)],['REB',p.trb.toFixed(1)],['AST',p.ast.toFixed(1)],['PER',p.per.toFixed(1)]].map(([l,v])=>`
+        <div class="modal-kpi"><div class="modal-kpi-label">${l}</div><div class="modal-kpi-val">${v}</div></div>`).join('')}
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-title">Cap Allocation</div>
+      <div class="cap-block">
+        <div class="cap-block-top">
+          <div><div style="font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:3px">Cap Hit %</div>
+            <div class="cap-number-big" style="color:${barColor}">${p.cap_pct>0?p.cap_pct.toFixed(2)+'%':'N/A'}</div></div>
+          <div style="text-align:right"><div style="font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:3px">Annual Salary</div>
+            <div style="font-size:1.3rem;font-weight:700">${p.cap_hit>0?'$'+Math.round(p.cap_hit/1000)+'K':'N/A'}</div></div>
+        </div>
+        ${p.cap_pct>0?`<div class="cap-full-bar"><div class="cap-full-fill" style="width:${barW}%;background:${barColor}"></div></div>
+        <div class="cap-minmax"><span>0%</span><span style="color:${barColor}">${p.cap_pct.toFixed(2)}% of cap</span><span>${MAX_CAP}%</span></div>`:''}
+      </div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-title">Contract Value Assessment</div>
+      <div class="val-block">
+        <div class="val-score-big" style="color:${vsColor}">${vs!==null?vs:'—'}</div>
+        <div><div class="val-info-title">PIV ÷ Cap% Value Score</div><div class="val-info-desc" style="color:${vsColor}">${vsLabel}</div></div>
+        <div style="flex:1;text-align:right"><div class="piv-circle" style="margin-left:auto">${p.piv}</div>
+          <div style="font-size:.62rem;color:var(--muted);margin-top:2px;text-align:center">PIV Score</div></div>
+      </div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-title">Advanced Stats</div>
+      <div class="modal-stat-grid">
+        ${[['TS%',(p.ts_pct*100).toFixed(1)+'%'],['FG%',(p.fg_pct*100).toFixed(1)+'%'],['WS',p.ws.toFixed(1)],
+          ['WS/40',(p.ws48||0).toFixed(3)],['STL',p.stl.toFixed(1)],['BLK',p.blk.toFixed(1)],
+          ['AST',p.ast.toFixed(1)],['TOV',p.tov!==undefined?p.tov.toFixed(1):'—'],['Games',p.g]
+        ].map(([n,v])=>`<div class="modal-stat"><span class="modal-stat-name">${n}</span><span class="modal-stat-val">${v}</span></div>`).join('')}
+      </div>
+    </div>`;
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal(e){if(e.target===document.getElementById('overlay'))closeModalDirect();}
+function closeModalDirect(){document.getElementById('overlay').classList.remove('open');}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModalDirect();});
+
+init();
+</script>
+</body>
+</html>
